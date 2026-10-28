@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error"
+  },
+  "rules": {
+    "no-unused-vars": ["error", { "ignoreRestSiblings": true }],
+    // Solid assigns `let element!: HTMLElement` through the JSX `ref` attribute, which this rule cannot see.
+    "no-unassigned-vars": "off"
+  },
+  "ignorePatterns": ["dist", "reference"]
+}

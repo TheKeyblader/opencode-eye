@@ -117,9 +117,9 @@ function DebugLog(props: { readonly session: MountedSession; readonly log: Event
     const all = props.log.entries
     const list = onlySession() ? all.filter((entry) => entry.session === props.session.id) : all
 
-    return list.slice(-100).reverse()
+    return list.slice(-100).toReversed()
   })
-  const types = createMemo(() => Object.entries(props.log.counts).sort(([a], [b]) => a.localeCompare(b)))
+  const types = createMemo(() => Object.entries(props.log.counts).toSorted(([a], [b]) => a.localeCompare(b)))
   const dump = () =>
     props.log.serialize({ app: ctx.app.version, platform: ctx.app.platform, session: props.session.id })
 

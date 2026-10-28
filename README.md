@@ -107,7 +107,7 @@ The preview page takes query parameters: `?state=read`, `?grid` (every state), `
 | `src/gui/panel.tsx`, `card.tsx` | The panel and the details card                                                             |
 | `src/gui/settings.tsx`          | The settings page                                                                          |
 
-The eye was designed with Claude Design: `SPEC.md` (in French) and `reference/` hold the validated mock-up the code
+The eye was designed with Claude Design: `SPEC.md` and `reference/` hold the validated mock-up the code
 ports. The debug log (_Toggle the eye's event log_) records the server's events, to see what the eye reacts to.
 
 ## License

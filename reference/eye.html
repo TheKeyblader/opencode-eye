@@ -1,12 +1,12 @@
 <!--
-  L'œil : markup de référence (validé en maquette).
-  À porter en JSX Solid. Les valeurs entre {accolades} sont dynamiques :
-    {state}      → valeur de data-state (idle, think, read…)
-    {tool}       → "yes" si un outil est affiché, sinon "no"
-    {size}       → largeur de l'œil en px (80 à 300) ; hauteur de l'œil = size × 1,15 ; hauteur de la scène = size × 0,6
-    {uid}        → identifiant unique par instance (createUniqueId) pour les clipPath
-  Les attributs data-theme, data-brow, data-reduced, data-impatient et data-tired vont sur la racine .eye-root.
-  Les variables --look-x, --lid, --lx… sont écrites par eye-engine.js : ne pas les poser en dur.
+  The eye: reference markup (validated in the mock-up).
+  To port to Solid JSX. The values in {braces} are dynamic:
+    {state}      → the value of data-state (idle, think, read…)
+    {tool}       → "yes" when a tool is shown, else "no"
+    {size}       → the eye's width in px (80 to 300); the eye's height = size × 1.15; the scene's height = size × 0.6
+    {uid}        → a unique id per instance (createUniqueId) for the clipPaths
+  The attributes data-theme, data-brow, data-reduced, data-impatient and data-tired go on the .eye-root root.
+  The variables --look-x, --lid, --lx… are written by eye-engine.js: do not set them by hand.
 -->
 <div class="eye-root" data-theme="dark" data-brow="on" data-reduced="off" data-impatient="off" data-tired="off"
      style="--stroke-w: 3.5">
@@ -22,10 +22,10 @@
         <g class="body">
           <circle class="halo" cx="100" cy="100" r="72"/>
 
-          <!-- sourcil -->
+          <!-- brow -->
           <g class="brow-g"><path class="brow" d="M 64 -6 Q 100 -20 136 -6"/></g>
 
-          <!-- tout ce qui suit la paupière (scaleY) -->
+          <!-- everything that follows the lid (scaleY) -->
           <g class="lids">
             <g class="ticks">
               <line class="tick" x1="100" y1="19" x2="100" y2="8" transform="rotate(-44 100 100)"/>
@@ -37,15 +37,15 @@
             <circle class="ring" cx="100" cy="100" r="72"/>
             <g clip-path="url(#ring-{uid})">
               <g class="look"><g class="pupil"><circle class="pup" cx="100" cy="100" r="17"/></g></g>
-              <!-- spirale d'Archimède r = 2 + 1,75θ, θ de 0 à 7π, pas de 0,2 rad : générer le d au montage (voir eye-engine.js, spiralPath) -->
+              <!-- Archimedean spiral r = 2 + 1.75θ, θ from 0 to 7π, steps of 0.2 rad: generate the d on mount (see eye-engine.js, spiralPath) -->
               <g class="spiral-g"><path class="spiral" d="{spiralPath()}"/></g>
             </g>
           </g>
 
-          <!-- état happy : arc « ^ » -->
+          <!-- happy state: "^" arc -->
           <path class="smile" d="M 46 112 Q 100 48 154 112"/>
 
-          <!-- état sleep : les « z » -->
+          <!-- sleep state: the "z"s -->
           <g>
             <text class="zz z1" x="150" y="26">z</text>
             <text class="zz z2" x="150" y="26">z</text>
@@ -53,14 +53,14 @@
           </g>
         </g>
 
-        <!-- erreurs : étoiles qui tournent -->
+        <!-- errors: spinning stars -->
         <g class="stars">
           <path class="star" transform="translate(190 100)" d="M 0 -9 Q 1.6 -1.6 9 0 Q 1.6 1.6 0 9 Q -1.6 1.6 -9 0 Q -1.6 -1.6 0 -9 Z"/>
           <path class="star" transform="translate(55 178)" d="M 0 -9 Q 1.6 -1.6 9 0 Q 1.6 1.6 0 9 Q -1.6 1.6 -9 0 Q -1.6 -1.6 0 -9 Z"/>
           <path class="star" transform="translate(55 22)"  d="M 0 -9 Q 1.6 -1.6 9 0 Q 1.6 1.6 0 9 Q -1.6 1.6 -9 0 Q -1.6 -1.6 0 -9 Z"/>
         </g>
 
-        <!-- happy : confettis -->
+        <!-- happy: confetti -->
         <g class="confetti">
           <rect class="cf" x="34"  y="-34" width="3.5" height="9" style="animation-delay: 0s"/>
           <rect class="cf" x="56"  y="-48" width="3.5" height="9" style="animation-delay: .08s"/>
@@ -74,7 +74,7 @@
           <rect class="cf" x="138" y="-22" width="3.5" height="9" style="animation-delay: .2s"/>
         </g>
 
-        <!-- modificateur impatient : sablier -->
+        <!-- impatient modifier: hourglass -->
         <g class="hourglass" transform="translate(16 4)">
           <g class="hg">
             <path class="hg-l" d="M -7 -10 H 7 M -7 10 H 7 M -5.5 -10 L 0 0 L -5.5 10 M 5.5 -10 L 0 0 L 5.5 10"/>
@@ -82,7 +82,7 @@
           </g>
         </g>
 
-        <!-- modificateur tired : café -->
+        <!-- tired modifier: coffee -->
         <g class="coffee" transform="translate(18 170)">
           <path class="cup" d="M -10 -4 H 8 V 4 Q 8 12 -1 12 Q -10 12 -10 4 Z"/>
           <path class="cup-h" d="M 8 -1 Q 14 -1 14 3 Q 14 7 8 7"/>
@@ -90,7 +90,7 @@
           <path class="steam s2" d="M 2 -8 q -3 -4 0 -8 q 3 -4 0 -8"/>
         </g>
 
-        <!-- think : bulle de pensée (retournée par --bub-s selon le côté du regard) -->
+        <!-- think: thought bubble (flipped by --bub-s with the gaze's side) -->
         <g class="bubble">
           <circle class="bub-part b1" cx="146" cy="6" r="3.5"/>
           <circle class="bub-part b2" cx="158" cy="-10" r="5.5"/>
@@ -102,21 +102,21 @@
       </svg>
     </button>
 
-    <!-- badge d'outil (affiché seulement pendant un état d'outil). Icônes : remplaçants, utiliser celles de l'app -->
+    <!-- tool badge (only during a tool state). Icons: placeholders, use the app's -->
     <div class="eye-badge">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
         <circle cx="10" cy="10" r="6.5"/><line x1="15" y1="15" x2="21" y2="21"/>
       </svg>
       <span>grep</span>
-      <span class="count">×3</span> <!-- seulement si N > 1 -->
+      <span class="count">×3</span> <!-- only when N > 1 -->
     </div>
 
-    <!-- scène sous l'œil -->
+    <!-- the scene under the eye -->
     <svg class="stage" data-stage data-state="{state}" viewBox="0 0 200 120"
          style="width: {size}px; height: calc({size}px * 0.6)" aria-hidden="true">
       <defs><clipPath id="term-{uid}"><rect x="46" y="28" width="108" height="58"/></clipPath></defs>
 
-      <!-- read / write : feuille, loupe, crayon -->
+      <!-- read / write: sheet, magnifier, pencil -->
       <g class="paper-g">
         <path class="paper" d="M 52 10 H 136 L 150 24 V 112 H 52 Z"/>
         <path class="fold" d="M 136 10 V 24 H 150"/>
@@ -143,7 +143,7 @@
         </g>
       </g>
 
-      <!-- shell : terminal (motif de 3 longueurs répété pour que la boucle de défilement soit invisible) -->
+      <!-- shell: terminal (a pattern of 3 lengths, repeated so the scroll loops unseen) -->
       <g class="prop p-term">
         <rect class="ln bgf" x="44" y="12" width="112" height="96" rx="6"/>
         <line class="ln" x1="44" y1="26" x2="156" y2="26"/>
@@ -151,7 +151,7 @@
         <circle class="fillc" cx="61" cy="19" r="2"/>
         <circle class="fillc" cx="69" cy="19" r="2"/>
         <g clip-path="url(#term-{uid})"><g class="t-scroll">
-          <!-- 9 lignes, y = 40 + 18i, x2 = [140, 118, 130] répété -->
+          <!-- 9 lines, y = 40 + 18i, x2 = [140, 118, 130] repeated -->
           <path class="ln mut" d="M 52 36 l 4 4 l -4 4"/><line class="ln mut" x1="62" y1="40" x2="140" y2="40"/>
           <path class="ln mut" d="M 52 54 l 4 4 l -4 4"/><line class="ln mut" x1="62" y1="58" x2="118" y2="58"/>
           <path class="ln mut" d="M 52 72 l 4 4 l -4 4"/><line class="ln mut" x1="62" y1="76" x2="130" y2="76"/>
@@ -166,12 +166,12 @@
         <rect class="t-cur" x="62" y="93" width="7" height="10"/>
       </g>
 
-      <!-- generic : pièce de puzzle -->
+      <!-- generic: puzzle piece -->
       <g class="prop p-puzzle"><g class="pz-pos"><g class="pz">
         <path class="ln bgf" d="M -12 -12 H -3 A 4 4 0 1 1 3 -12 H 12 V -3 A 4 4 0 1 1 12 3 V 12 H -12 Z"/>
       </g></g></g>
 
-      <!-- delegate : mini-œil -->
+      <!-- delegate: mini eye -->
       <g class="prop p-mini"><g class="mini-pos">
         <line class="ln" x1="0" y1="-25" x2="0" y2="-30" transform="rotate(-32)"/>
         <line class="ln" x1="0" y1="-25" x2="0" y2="-30"/>
@@ -180,7 +180,7 @@
         <g class="mini-look"><circle class="mini-pup" cx="0" cy="0" r="7"/></g>
       </g></g>
 
-      <!-- web : globe -->
+      <!-- web: globe -->
       <g class="prop p-globe">
         <circle class="ln bgf" cx="100" cy="58" r="32"/>
         <line class="ln" x1="68" y1="58" x2="132" y2="58"/>
@@ -190,7 +190,7 @@
         <ellipse class="ln g-mer m2" cx="100" cy="58" rx="32" ry="32"/>
       </g>
 
-      <!-- plan : checklist -->
+      <!-- plan: checklist -->
       <g class="prop p-plan">
         <rect class="ln bgf" x="48" y="8" width="104" height="104" rx="6"/>
         <rect class="ln" x="58" y="19" width="14" height="14" rx="3"/><line class="ln mut" x1="82" y1="26" x2="138" y2="26"/>
@@ -203,7 +203,7 @@
         <path class="ln" d="M 61 92 L 64.5 95.5 L 70 88.5" style="stroke-dasharray: 14 14; stroke-dashoffset: calc((1 - var(--c3, 0)) * 14px)"/>
       </g>
 
-      <!-- respond : bulle de dialogue -->
+      <!-- respond: speech bubble -->
       <g class="prop p-speech">
         <rect class="ln bgf" x="48" y="18" width="104" height="64" rx="14"/>
         <path class="bgf" d="M 91 20.5 L 100 6 L 109 20.5 Z"/>
@@ -213,7 +213,7 @@
         <line class="ln sp sp3" x1="64" y1="66" x2="106" y2="66"/>
       </g>
 
-      <!-- attention : « ? » suspendu -->
+      <!-- attention: a hanging "?" -->
       <g class="prop p-ask"><g class="ask-swing">
         <line class="ln" x1="100" y1="2" x2="100" y2="22"/>
         <circle class="ln bgf" cx="100" cy="42" r="20"/>
@@ -221,7 +221,7 @@
         <circle class="fillc" cx="100" cy="54" r="2.4"/>
       </g></g>
 
-      <!-- sleep : oreiller -->
+      <!-- sleep: pillow -->
       <g class="prop p-pillow"><g class="pill">
         <path class="ln bgf" d="M 44 26 Q 46 10 66 14 Q 100 6 134 14 Q 154 10 156 26 Q 162 44 156 62 Q 154 78 134 74 Q 100 82 66 74 Q 46 78 44 62 Q 38 44 44 26 Z"/>
         <path class="ln mut" d="M 60 24 Q 64 30 60 34"/>
@@ -230,6 +230,6 @@
     </svg>
   </div>
 
-  <!-- barre d'état du panneau -->
+  <!-- the panel's status bar -->
   <div class="eye-status" aria-live="polite"><span class="dot"></span><span>Au repos</span></div>
 </div>

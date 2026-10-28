@@ -30,8 +30,12 @@ const token = (name: string, fallback: string) => `var(--${name}, ${fallback})`
 
 /**
  * The eye in the colors of the app's theme (Nord, OpenCode, …), read from the CSS variables the app derives from the
- * theme's palette: its `primary` color (`--surface-brand-base`) for the iris, its ink (`--text-*`) for the outline,
- * its background for the lid. These variables are the app's, not the SDK's: each falls back on `FALLBACK`.
+ * theme's palette: its `primary` color (`--surface-brand-base`) for the iris, its ink (`--text-strong`,
+ * `--icon-base`) for the outline, its background for the lid. These variables are the app's, not the SDK's: each
+ * falls back on `FALLBACK`.
+ *
+ * Not `--v2-*`: those alias a fixed scale (`--v2-blue-600` is always #3b5cf6) that no theme changes. Not
+ * `--text-base`: the app's Tailwind theme also defines it as a font size.
  */
 export function themePalette(mode: "light" | "dark"): Palette {
   const fallback = FALLBACK[mode]
@@ -44,8 +48,8 @@ export function themePalette(mode: "light" | "dark"): Palette {
     sclera: dark ? ink : token("surface-raised-stronger-non-alpha", fallback.sclera),
     iris: token("surface-brand-base", fallback.iris),
     pupil: dark ? `color-mix(in srgb, ${background} 85%, black)` : ink,
-    outline: dark ? token("text-base", fallback.outline) : ink,
-    lid: `color-mix(in srgb, ${background} 72%, ${token("text-base", dark ? "#a0a0a0" : "#6f6f6f")})`,
+    outline: dark ? token("icon-base", fallback.outline) : ink,
+    lid: `color-mix(in srgb, ${background} 72%, ${token("icon-base", dark ? "#a0a0a0" : "#6f6f6f")})`,
   }
 }
 

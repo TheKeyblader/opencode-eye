@@ -13,6 +13,15 @@ describe("themePalette", () => {
     }
   })
 
+  test("never reads --text-base, which the app also uses as a font size, nor the unthemed --v2-* scale", () => {
+    for (const mode of ["light", "dark"] as const) {
+      for (const color of Object.values(themePalette(mode))) {
+        expect(color).not.toContain("--text-base")
+        expect(color).not.toContain("--v2-")
+      }
+    }
+  })
+
   test("keeps the pupil dark and the white light in both modes", () => {
     expect(themePalette("light").pupil).toContain("--text-strong")
     expect(themePalette("dark").pupil).toContain("black")

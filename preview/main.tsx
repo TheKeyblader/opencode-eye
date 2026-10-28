@@ -11,14 +11,14 @@ const NORD: Record<"light" | "dark", Record<string, string>> = {
   light: {
     "--surface-brand-base": "#5e81ac",
     "--text-strong": "#2e3440",
-    "--text-base": "#4c566a",
+    "--icon-base": "#4c566a",
     "--background-base": "#eceff4",
     "--surface-raised-stronger-non-alpha": "#ffffff",
   },
   dark: {
     "--surface-brand-base": "#88c0d0",
     "--text-strong": "#e5e9f0",
-    "--text-base": "#a3abb9",
+    "--icon-base": "#a3abb9",
     "--background-base": "#2e3440",
     "--surface-raised-stronger-non-alpha": "#3b4252",
   },

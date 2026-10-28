@@ -50,6 +50,7 @@ const KINDS: Readonly<Record<ToolKind, IconName>> = {
 
 const VALID: ReadonlySet<string> = new Set(ICON_NAMES)
 
+/** Whether the app has an icon of this name: for names that come from storage. */
 export const isIconName = (value: string): value is IconName => VALID.has(value)
 
 /**

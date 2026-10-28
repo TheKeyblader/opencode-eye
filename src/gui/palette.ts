@@ -5,11 +5,13 @@
 
 export type Stroke = "thin" | "normal" | "bold"
 
+/** The line widths a user can pick, thinnest first. */
 export const STROKES = ["thin", "normal", "bold"] as const satisfies readonly Stroke[]
 
 /** The line width of each stroke, in viewBox units: the mock-up's is 3.5. */
 const STROKE_WIDTH: Readonly<Record<Stroke, number>> = { thin: 2.5, normal: 3.5, bold: 4.5 }
 
+/** A stroke's line width, in viewBox units: `--stroke-w`. */
 export const strokeWidth = (stroke: Stroke) => STROKE_WIDTH[stroke]
 
 /** The colors a user can set: `#rrggbb`, or empty to follow the theme. */
@@ -19,6 +21,7 @@ export interface Colors {
   readonly error: string
 }
 
+/** The colors a user can set, in the order the settings show them. */
 export const COLORS: readonly (keyof Colors)[] = ["contour", "error"]
 
 /** The token each color sets, to read what the theme computes it to. */
@@ -26,6 +29,7 @@ export const TOKENS: Readonly<Record<keyof Colors, string>> = { contour: "var(--
 
 const HEX = /^#[0-9a-f]{6}$/i
 
+/** Whether a value is a `#rrggbb` color, the only form the settings store. */
 export const isHex = (value: string) => HEX.test(value)
 
 /** The user's colors, with anything that is not `#rrggbb` left to the theme. */
@@ -60,11 +64,13 @@ export function computedHex(color: string, element: Element): string | undefined
 /** The eye's width, in px. `0` is automatic: `AUTO_RATIO` of the panel's width. */
 export const SIZE = { min: 80, max: 300, step: 4, auto: 0 } as const
 
+/** The share of the panel's width the eye takes at the automatic size. */
 export const AUTO_RATIO = 0.6
 
 /** Under this width, the scene and the props hide: only the eye stays readable. */
 export const COMPACT = 120
 
+/** A width within `SIZE.min` and `SIZE.max`, in whole pixels; `SIZE.min` for a value that is not a number. */
 export function clampSize(size: number): number {
   if (!Number.isFinite(size)) return SIZE.min
   return Math.min(SIZE.max, Math.max(SIZE.min, Math.round(size)))

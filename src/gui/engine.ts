@@ -7,12 +7,14 @@
  */
 import type { EyeState, Mods } from "./machine"
 
+/** What the engine reads on every frame. */
 export interface EngineInput {
   readonly state: EyeState
   readonly mods?: Partial<Mods>
   readonly reduced?: boolean
 }
 
+/** The frame loop of one eye: see `createEyeEngine`. */
 export interface Engine {
   /** Runs the frame loop and follows the pointer, until `stop`. Pauses by itself while the document is hidden. */
   start(): void
@@ -111,6 +113,10 @@ interface Motion {
 type SpringKey = "x" | "y" | "lid" | "by" | "br" | "k" | "bs" | "zx" | "zy" | "mix" | "miy"
 type VelocityKey = "vx" | "vy" | "vlid" | "vby" | "vbr" | "vk" | "vbs" | "vzx" | "vzy" | "vmix" | "vmiy"
 
+/**
+ * The animation engine of one eye. It reads `getInput` on every frame and writes the motion as CSS variables on the
+ * eye's SVG and the scene's; it never creates or removes a node. Nothing runs until `start`.
+ */
 export function createEyeEngine(options: {
   readonly eye: SVGSVGElement
   readonly stage?: SVGSVGElement | null

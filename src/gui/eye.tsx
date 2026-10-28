@@ -4,6 +4,7 @@ import { createEyeEngine, spiralPath, type Engine } from "./engine"
 import type { EyeState, Mods } from "./machine"
 import { COMPACT, strokeWidth, type Colors, type Stroke } from "./palette"
 
+/** The eye's inputs: what it shows and how it looks. */
 export interface EyeProps {
   readonly state: EyeState
   /** Whether a tool is shown: the hourglass of `impatient` only shows with one. */

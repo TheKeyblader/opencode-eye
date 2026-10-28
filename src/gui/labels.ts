@@ -17,6 +17,7 @@ export function viewLabel(t: Translate, view: EyeView): string {
   return view.mods.impatient && view.tool ? `${label} · ${t("state.impatient")}` : label
 }
 
+/** A past transition, in one line: its state and its tool. */
 export const transitionLabel = (t: Translate, item: Transition) => stateLabel(t, item.state, item.tool)
 
 /** The states a screen reader hears: attention, the errors and the end of a run. Not every tool. */

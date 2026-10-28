@@ -1,8 +1,9 @@
 import { createSignal, For, Show } from "solid-js"
 import { render } from "solid-js/web"
-import { Eye, themePalette } from "../src/gui/eye"
+import { Eye } from "../src/gui/eye"
 import { simulate, type Look } from "../src/gui/motion"
-import { setVisible } from "./plugin-gui"
+import { themePalette, type EyeStyle } from "../src/gui/palette"
+import { setVisible, usePanel } from "./plugin-gui"
 import css from "../src/gui/eye.css?inline"
 
 const LOOKS: Record<string, Look> = {
@@ -23,6 +24,8 @@ function App() {
   const [name, setName] = createSignal(params.get("look") ?? "idle")
   const [mode, setMode] = createSignal<"light" | "dark">(params.get("mode") === "dark" ? "dark" : "light")
   const [size, setSize] = createSignal(Number(params.get("size") ?? 160))
+  const [style, setStyle] = createSignal<EyeStyle>(params.get("style") === "cartoon" ? "cartoon" : "realistic")
+  const { visible } = usePanel()
   // ?still=<seconds> draws the pose reached after that long, for screenshots.
   const still = params.has("still") ? Number(params.get("still") || 2) : undefined
   let seed = 7
@@ -49,6 +52,7 @@ function App() {
           )}
         </For>
         <button onClick={() => setMode(mode() === "dark" ? "light" : "dark")}>{mode()}</button>
+        <button onClick={() => setStyle(style() === "cartoon" ? "realistic" : "cartoon")}>{style()}</button>
         <label>
           size <input type="range" min="60" max="320" value={size()} onInput={(e) => setSize(+e.currentTarget.value)} />
         </label>
@@ -64,6 +68,8 @@ function App() {
                 <Eye
                   look={look}
                   size={size()}
+                  style={style()}
+                  visible={visible}
                   palette={themePalette(mode())}
                   label={key}
                   still={simulate(look, still ?? 2, random)}
@@ -78,6 +84,8 @@ function App() {
         <Eye
           look={LOOKS[name()]!}
           size={size()}
+          style={style()}
+          visible={visible}
           palette={themePalette(mode())}
           label={name()}
           still={still === undefined ? undefined : simulate(LOOKS[name()]!, still, random)}

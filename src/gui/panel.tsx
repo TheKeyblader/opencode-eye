@@ -1,12 +1,13 @@
 import { createMemo, createSignal, For, Show, type Accessor } from "solid-js"
-import { usePlugin, type MountedSession } from "@opencode/plugin/gui"
+import { usePanel, usePlugin, type MountedSession } from "@opencode/plugin/gui"
 import type { EventLog } from "./debug"
 import type { definition } from "./definition"
 import { openDetails } from "./details"
-import { Eye, themePalette } from "./eye"
+import { Eye } from "./eye"
 import { runningIcon } from "./icons"
 import { stateLabel, toolName } from "./labels"
 import type { Look } from "./motion"
+import { resolvePalette } from "./palette"
 import { currentTool, initial, type EyeState, type Sessions } from "./state"
 
 const IDLE = initial(0)
@@ -17,6 +18,8 @@ export function EyePanel(props: {
   readonly log: EventLog
 }) {
   const ctx = usePlugin<typeof definition>()
+  const panel = usePanel()
+  const settings = () => ctx.stores.settings.value
   // Read through the getter each time: the panel stays mounted when the user switches sessions.
   const state = (): EyeState => props.eyes()[props.session.id] ?? IDLE
   const look = createMemo(
@@ -49,7 +52,14 @@ export function EyePanel(props: {
             openDetails(ctx, () => props.eyes()[id] ?? IDLE)
           }}
         >
-          <Eye look={look()} size={160} palette={themePalette(ctx.appearance.mode())} label={label()} />
+          <Eye
+            look={look()}
+            size={settings().size}
+            style={settings().style}
+            palette={resolvePalette(ctx.appearance.mode(), settings())}
+            label={label()}
+            visible={panel.visible}
+          />
           <Show when={tool()}>
             {(running) => (
               <span class="opencode-eye__badge" title={toolName(running())}>

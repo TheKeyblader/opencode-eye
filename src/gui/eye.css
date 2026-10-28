@@ -237,3 +237,57 @@
 .opencode-eye-debug__other {
   opacity: 0.5;
 }
+
+.opencode-eye-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 560px;
+}
+
+.opencode-eye-settings__preview {
+  display: grid;
+  place-items: center;
+  min-height: 200px;
+}
+
+.opencode-eye-settings h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.opencode-eye-settings__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.opencode-eye-settings__row input[type="range"] {
+  flex: 1;
+  min-width: 140px;
+}
+
+.opencode-eye-settings__row input[type="color"] {
+  width: 32px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.opencode-eye-settings__value {
+  min-width: 56px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.opencode-eye-settings__hint {
+  margin: 0 0 8px;
+  font-size: 12px;
+  opacity: 0.6;
+}

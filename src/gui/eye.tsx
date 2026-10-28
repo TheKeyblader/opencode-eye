@@ -1,5 +1,5 @@
-import { createUniqueId, onCleanup, Show } from "solid-js"
-import { createKeyed, usePanel } from "@opencode/plugin/gui"
+import { createUniqueId, For, onCleanup, Show } from "solid-js"
+import { createKeyed } from "@opencode/plugin/gui"
 import {
   behavior,
   clampDisc,
@@ -15,60 +15,73 @@ import {
   type Pose,
   type Spring,
 } from "./motion"
-
-export interface Palette {
-  readonly sclera: string
-  readonly iris: string
-  readonly pupil: string
-  readonly outline: string
-  readonly lid: string
-}
-
-export function themePalette(mode: "light" | "dark"): Palette {
-  return mode === "dark"
-    ? { sclera: "#ecebe6", iris: "#5f9fe6", pupil: "#0d0d0f", outline: "#d4d4d8", lid: "#3b3a38" }
-    : { sclera: "#ffffff", iris: "#3d78bb", pupil: "#111114", outline: "#2a2a2e", lid: "#dcd6d0" }
-}
+import type { EyeStyle, Palette } from "./palette"
 
 // Geometry, in the 100×100 viewBox centered on the eye.
 const R = 40
-const IRIS = 17
-const PUPIL_R = 7.5
-const TRAVEL = R - IRIS - 4
 const UPPER_BULGE = 10
 const LOWER_BULGE = 6
 
-const SPIRAL = (() => {
+interface Geometry {
+  readonly iris: number
+  readonly pupil: number
+  readonly outline: number
+  readonly lash: number
+  /** Shaded iris with a darker rim, or one flat color. */
+  readonly shaded: boolean
+  /** Catchlights: x, y, radius, relative to the iris center. */
+  readonly highlights: readonly (readonly [number, number, number])[]
+}
+
+const GEOMETRY: Readonly<Record<EyeStyle, Geometry>> = {
+  realistic: { iris: 17, pupil: 7.5, outline: 2.5, lash: 2.4, shaded: true, highlights: [[-5, -6, 3]] },
+  cartoon: {
+    iris: 15,
+    pupil: 10,
+    outline: 4.5,
+    lash: 4,
+    shaded: false,
+    highlights: [
+      [-4, -5, 4],
+      [4.5, 3.5, 1.8],
+    ],
+  },
+}
+
+function spiral(radius: number): string {
   const turns = 3
   const points: string[] = []
 
   for (let i = 0; i <= turns * 32; i++) {
     const angle = (i / 32) * Math.PI * 2
-    const radius = ((IRIS - 2) * i) / (turns * 32)
+    const r = (radius * i) / (turns * 32)
 
-    points.push(`${(Math.cos(angle) * radius).toFixed(2)} ${(Math.sin(angle) * radius).toFixed(2)}`)
+    points.push(`${(Math.cos(angle) * r).toFixed(2)} ${(Math.sin(angle) * r).toFixed(2)}`)
   }
 
   return `M ${points.join(" L ")}`
-})()
+}
 
 const spring = (value: number): Spring => ({ value, velocity: 0 })
 
 /**
- * The animated eye. Its frame loop runs only while the panel tab is visible, and follows the pointer only while
- * idle. Each frame writes the SVG attributes directly: nothing re-renders.
+ * The animated eye. Its frame loop runs only while `visible`, and follows the pointer only while idle and visible.
+ * Each frame writes the SVG attributes directly: nothing re-renders.
  */
 export function Eye(props: {
   readonly look: Look
   readonly size: number
+  readonly style: EyeStyle
   readonly palette: Palette
   readonly label: string
+  /** Whether the eye is on screen, such as `usePanel().visible`. */
+  readonly visible: () => boolean
   /** A fixed pose to draw instead of animating, for previews. */
   readonly still?: Pose
 }) {
-  const panel = usePanel()
   const ids = { clip: createUniqueId(), iris: createUniqueId() }
   const calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
+  const geometry = () => GEOMETRY[props.style] ?? GEOMETRY.realistic
   const gaze = { x: spring(0), y: spring(0) }
   const lid = spring(1)
   const pupil = spring(1)
@@ -79,40 +92,46 @@ export function Eye(props: {
   let lower: SVGPathElement | undefined
   let lash: SVGPathElement | undefined
   let pointer: { x: number; y: number } | undefined
+  let last: Pose = props.still ?? REST
 
   let key = ""
   let current: Behavior | undefined
   let born = 0
 
-  const draw = (x: number, y: number, open: number, scale: number) => {
+  const draw = (pose: Pose) => {
+    const { x, y } = pose
+    const shape = geometry()
+    const travel = R - shape.iris - 4
     const length = Math.hypot(x, y)
     const angle = (Math.atan2(y, x) * 180) / Math.PI
     // Foreshortening: the iris narrows along the direction it turns to.
     const squash = 1 - 0.16 * Math.min(1, length)
-    const o = Math.max(0, Math.min(1.25, open))
+    const o = Math.max(0, Math.min(1.25, pose.open))
     const top = -R - 4 + (1 - o) * (R + 6)
     const bottom = R + 4 - (1 - o) * (R + 2)
 
+    last = pose
     iris?.setAttribute(
       "transform",
-      `translate(${(x * TRAVEL).toFixed(2)} ${(y * TRAVEL).toFixed(2)}) rotate(${angle.toFixed(1)}) scale(${squash.toFixed(3)} 1) rotate(${(-angle).toFixed(1)})`,
+      `translate(${(x * travel).toFixed(2)} ${(y * travel).toFixed(2)}) rotate(${angle.toFixed(1)}) scale(${squash.toFixed(3)} 1) rotate(${(-angle).toFixed(1)})`,
     )
-    pupilDot?.setAttribute("r", (PUPIL_R * Math.max(0.3, scale)).toFixed(2))
+    pupilDot?.setAttribute("r", (shape.pupil * Math.max(0.3, pose.pupil)).toFixed(2))
     upper?.setAttribute("d", `M -60 -60 H 60 V ${top} Q 0 ${top + UPPER_BULGE * 2} -60 ${top} Z`)
     lash?.setAttribute("d", `M -60 ${top} Q 0 ${top + UPPER_BULGE * 2} 60 ${top}`)
     lower?.setAttribute("d", `M -60 60 H 60 V ${bottom} Q 0 ${bottom - LOWER_BULGE * 2} -60 ${bottom} Z`)
   }
 
+  // Draw on mount, for a new still pose, and when the style changes the geometry while the loop is paused.
   createKeyed(
-    () => props.still,
-    (pose) => draw(pose.x, pose.y, pose.open, pose.pupil),
+    () => props.still ?? props.style,
+    () => queueMicrotask(() => draw(props.still ?? last)),
   )
 
-  // Frame loop, while the tab shows.
+  // Frame loop, while the eye shows.
   createKeyed(
-    () => !props.still && panel.visible(),
+    () => !props.still && props.visible(),
     () => {
-      let last = performance.now()
+      let previous = performance.now()
       let frame = 0
 
       const tick = (now: number) => {
@@ -125,9 +144,9 @@ export function Eye(props: {
           born = now
         }
 
-        // A tab shown again after a while must not jump: cap the step.
-        const dt = Math.min((now - last) / 1000, 1 / 30)
-        last = now
+        // An eye shown again after a while must not jump: cap the step.
+        const dt = Math.min((now - previous) / 1000, 1 / 30)
+        previous = now
 
         const target = current.target((now - born) / 1000, { pointer: look.mood === "idle" ? pointer : undefined })
 
@@ -135,10 +154,7 @@ export function Eye(props: {
         step(gaze.y, target.y, dt, GAZE)
         step(lid, target.open, dt, LID)
         step(pupil, target.pupil, dt, PUPIL)
-
-        const g = clampDisc(gaze.x.value, gaze.y.value, 1.05)
-
-        draw(g.x, g.y, lid.value, pupil.value)
+        draw({ ...clampDisc(gaze.x.value, gaze.y.value, 1.05), open: lid.value, pupil: pupil.value })
         frame = requestAnimationFrame(tick)
       }
 
@@ -149,7 +165,7 @@ export function Eye(props: {
 
   // Pointer tracking, only while idle and visible. Moves are folded into one read per animation frame.
   createKeyed(
-    () => !props.still && panel.visible() && props.look.mood === "idle",
+    () => !props.still && props.visible() && props.look.mood === "idle",
     () => {
       let latest: PointerEvent | undefined
       let frame = 0
@@ -183,16 +199,10 @@ export function Eye(props: {
 
   return (
     <svg
-      ref={(element) => {
-        svg = element
-        queueMicrotask(() => {
-          const pose = props.still ?? REST
-
-          draw(pose.x, pose.y, pose.open, pose.pupil)
-        })
-      }}
+      ref={svg}
       class="opencode-eye__svg"
       classList={{ "opencode-eye__svg--stuck": !!props.look.stuck }}
+      data-style={props.style}
       viewBox="-50 -50 100 100"
       width={props.size}
       height={props.size}
@@ -213,27 +223,47 @@ export function Eye(props: {
       <g clip-path={`url(#${ids.clip})`}>
         <g ref={iris}>
           <circle
-            r={IRIS}
-            fill={`url(#${ids.iris})`}
-            stroke={`color-mix(in srgb, ${props.palette.iris} 45%, black)`}
+            r={geometry().iris}
+            fill={geometry().shaded ? `url(#${ids.iris})` : props.palette.iris}
+            stroke={geometry().shaded ? `color-mix(in srgb, ${props.palette.iris} 45%, black)` : "none"}
             stroke-width="1.2"
           />
-          <circle ref={pupilDot} r={PUPIL_R} fill={props.palette.pupil} />
+          <circle ref={pupilDot} r={geometry().pupil} fill={props.palette.pupil} />
           <Show when={props.look.stuck}>
-            <path class="opencode-eye__spiral" d={SPIRAL} fill="none" stroke={props.palette.sclera} stroke-width="1.6" />
+            <path
+              class="opencode-eye__spiral"
+              d={spiral(geometry().iris - 2)}
+              fill="none"
+              stroke={props.palette.sclera}
+              stroke-width="1.6"
+            />
           </Show>
-          <circle cx="-5" cy="-6" r="3" fill="white" opacity="0.85" />
+          <For each={geometry().highlights}>
+            {([x, y, r]) => <circle cx={x} cy={y} r={r} fill="white" opacity="0.85" />}
+          </For>
         </g>
         <path ref={upper} fill={props.palette.lid} />
         <path ref={lower} fill={props.palette.lid} />
-        <path ref={lash} fill="none" stroke={props.palette.outline} stroke-width="2.4" stroke-linecap="round" />
+        <path
+          ref={lash}
+          fill="none"
+          stroke={props.palette.outline}
+          stroke-width={geometry().lash}
+          stroke-linecap="round"
+        />
       </g>
-      <circle r={R} fill="none" stroke={props.palette.outline} stroke-width="2.5" />
+      <circle r={R} fill="none" stroke={props.palette.outline} stroke-width={geometry().outline} />
       <Show when={props.look.mood === "sleeping"}>
         <g class="opencode-eye__zzz" fill={props.palette.outline}>
-          <text x="30" y="-30">z</text>
-          <text x="36" y="-38">z</text>
-          <text x="42" y="-46">z</text>
+          <text x="30" y="-30">
+            z
+          </text>
+          <text x="36" y="-38">
+            z
+          </text>
+          <text x="42" y="-46">
+            z
+          </text>
         </g>
       </Show>
     </svg>

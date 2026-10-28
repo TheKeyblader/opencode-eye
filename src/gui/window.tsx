@@ -1,8 +1,18 @@
 import { createMemo, createSignal, onCleanup } from "solid-js"
-import { Command, createKeyed, MenuItem, Panel, Style, type PanelTab, type Plugin } from "@opencode/plugin/gui"
+import {
+  Command,
+  createKeyed,
+  MenuItem,
+  Panel,
+  SettingsPage,
+  Style,
+  type PanelTab,
+  type Plugin,
+} from "@opencode/plugin/gui"
 import { createEventLog } from "./debug"
 import type { definition } from "./definition"
 import { EyePanel } from "./panel"
+import { ENTRIES, EyeSettings } from "./settings"
 import { deadline, reduceSessions, TICK, type Sessions } from "./state"
 import css from "./eye.css?inline"
 
@@ -98,6 +108,18 @@ export const setup: Plugin.Setup<typeof definition> = (ctx) => {
       },
     }),
   )
+
+  ctx.add(SettingsPage, {
+    id: ctx.id,
+    icon: "eye",
+    get title() {
+      return ctx.t("settings.title")
+    },
+    get entries() {
+      return ENTRIES.map((id) => ({ id, title: ctx.t(`settings.entry.${id}`), keywords: ctx.t("settings.keywords") }))
+    },
+    render: (input) => <EyeSettings target={input.target} />,
+  })
 
   ctx.add(
     Command,

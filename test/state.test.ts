@@ -373,3 +373,74 @@ describe("captured run", () => {
     expect([...kinds].sort()).toEqual(["edit", "generic", "read", "shell"])
   })
 })
+
+describe("approvals, as OpenCode Desktop 2.2.0 sends them", () => {
+  const asked = (id: string, call: string) =>
+    ev("permission.asked", {
+      id,
+      action: "shell",
+      resources: ["echo eye-approval"],
+      save: ["echo *"],
+      source: { type: "tool", messageID: "msg_1", id: call },
+    })
+
+  test("an approved command stares, then runs and ends idle", () => {
+    const events = [
+      ev("session.tool.input.started", { id: "c1", name: "shell" }),
+      asked("per_1", "c1"),
+      ev("permission.replied", { requestID: "per_1", reply: "once" }),
+      ev("session.tool.success", { id: "c1" }),
+      ev("session.execution.succeeded"),
+    ]
+    const moods: Mood[] = []
+
+    events.reduce((state, event, i) => {
+      const next = reduce(state, event, 10 + i)
+
+      moods.push(next.mood)
+      return next
+    }, started)
+
+    expect(moods).toEqual(["tool", "attention", "tool", "thinking", "idle"])
+  })
+
+  test("a declined command is the user's choice: no error, the eye goes back to rest", () => {
+    const state = play(
+      [
+        ev("session.tool.input.started", { id: "c2", name: "shell" }),
+        asked("per_2", "c2"),
+        ev("permission.replied", { requestID: "per_2", reply: "reject" }),
+        ev("session.tool.failed", { id: "c2", error: { type: "aborted", message: "The user declined this tool call" } }),
+        ev("session.step.failed", { error: { type: "aborted", message: "Step interrupted" } }),
+        ev("session.execution.interrupted", { reason: "shutdown" }),
+      ],
+      started,
+    )
+
+    expect(state.error).toBeUndefined()
+    expect(state.mood).toBe("idle")
+    expect(state.history.some((item) => item.mood === "error")).toBe(false)
+  })
+
+  test("an aborted step, execution or compaction is no error either", () => {
+    const aborted = { error: { type: "aborted", message: "Step interrupted" } }
+
+    expect(play([ev("session.step.failed", aborted)], started).mood).toBe("thinking")
+    expect(play([ev("session.execution.failed", aborted)], started).mood).toBe("idle")
+    expect(play([ev("session.compaction.started"), ev("session.compaction.failed", aborted)], started).mood).toBe(
+      "thinking",
+    )
+  })
+
+  test("other failures still count as errors", () => {
+    const failed = play(
+      [
+        ev("session.tool.input.started", { id: "c3", name: "grep" }),
+        ev("session.tool.failed", { id: "c3", error: { type: "unknown", message: "Invalid ripgrep match output" } }),
+      ],
+      started,
+    )
+
+    expect(failed.mood).toBe("error")
+  })
+})

@@ -159,6 +159,9 @@ type Draft = Omit<EyeState, "mood" | "since" | "history"> & Partial<Pick<EyeStat
 
 function apply(state: EyeState, event: EyeEvent, now: number): EyeState | Draft {
   const data = record(event.data)
+  // The user declined a tool or stopped the run: their choice, not an error. The failure events that follow carry
+  // `error.type: "aborted"` ("The user declined this tool call", "Step interrupted").
+  const aborted = record(data.error).type === "aborted"
 
   switch (event.type) {
     case TICK:
@@ -178,7 +181,7 @@ function apply(state: EyeState, event: EyeEvent, now: number): EyeState | Draft 
         tools: [],
         asks: [],
         compacting: false,
-        error: { scope: "execution", message: messageOf(data), at: now },
+        error: aborted ? state.error : { scope: "execution", message: messageOf(data), at: now },
       }
 
     case "session.step.started":
@@ -194,7 +197,9 @@ function apply(state: EyeState, event: EyeEvent, now: number): EyeState | Draft 
       return state.running ? state : { ...state, running: true, started: state.started ?? now }
 
     case "session.step.failed":
-      return { ...state, tools: [], error: { scope: "step", message: messageOf(data), at: now } }
+      return aborted
+        ? { ...state, tools: [] }
+        : { ...state, tools: [], error: { scope: "step", message: messageOf(data), at: now } }
 
     case "session.tool.input.started": {
       const id = string(data.id)
@@ -225,7 +230,7 @@ function apply(state: EyeState, event: EyeEvent, now: number): EyeState | Draft 
     case "session.tool.failed": {
       const id = string(data.id)
       const tools = state.tools.filter((tool) => tool.id !== id)
-      const failed = event.type === "session.tool.failed"
+      const failed = event.type === "session.tool.failed" && !aborted
 
       if (!failed && tools.length === state.tools.length) return state
       return {
@@ -270,7 +275,9 @@ function apply(state: EyeState, event: EyeEvent, now: number): EyeState | Draft 
       return state.compacting ? { ...state, compacting: false } : state
 
     case "session.compaction.failed":
-      return { ...state, compacting: false, error: { scope: "compaction", message: messageOf(data), at: now } }
+      return aborted
+        ? { ...state, compacting: false }
+        : { ...state, compacting: false, error: { scope: "compaction", message: messageOf(data), at: now } }
 
     default:
       return state

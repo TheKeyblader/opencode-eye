@@ -1,8 +1,8 @@
-import { For, Show } from "solid-js"
+import { createSignal, For, Show } from "solid-js"
 import { createKeyed, usePlugin } from "@opencode/plugin/gui"
 import type { definition } from "./definition"
 import { Eye } from "./eye"
-import { clampSize, COLORS, resolvePalette, SIZE, STYLES, themePalette } from "./palette"
+import { clampSize, COLORS, computedHex, FALLBACK, resolvePalette, SIZE, STYLES, themePalette } from "./palette"
 
 /** The search entries of the settings page; each row carries its id so search can reveal it. */
 export const ENTRIES = ["size", "style", "colors", "debug"] as const
@@ -13,17 +13,27 @@ export function EyeSettings(props: { readonly target?: string }) {
   const settings = () => ctx.stores.settings.value
   const theme = () => themePalette(ctx.appearance.mode())
   const palette = () => resolvePalette(ctx.appearance.mode(), settings())
-  let root: HTMLDivElement | undefined
+  const [root, setRoot] = createSignal<HTMLDivElement>()
+  // A color input takes #rrggbb: show the user's color, else what the theme's computes to here.
+  const shown = (key: (typeof COLORS)[number]) => {
+    const element = root()
+
+    return (
+      settings()[key] ||
+      (element && computedHex(theme()[key], element)) ||
+      FALLBACK[ctx.appearance.mode()][key]
+    )
+  }
 
   // Search reveals an entry: bring its row into view.
   createKeyed(
     () => props.target,
     (target) =>
-      queueMicrotask(() => root?.querySelector(`[data-entry="${target}"]`)?.scrollIntoView({ block: "center" })),
+      queueMicrotask(() => root()?.querySelector(`[data-entry="${target}"]`)?.scrollIntoView({ block: "center" })),
   )
 
   return (
-    <div ref={root} class="opencode-eye-settings">
+    <div ref={setRoot} class="opencode-eye-settings">
       <div class="opencode-eye-settings__preview">
         <Eye
           look={{ mood: "idle" }}
@@ -86,7 +96,7 @@ export function EyeSettings(props: { readonly target?: string }) {
             <div class="opencode-eye-settings__row">
               <input
                 type="color"
-                value={palette()[key]}
+                value={shown(key)}
                 aria-label={ctx.t(`settings.color.${key}`)}
                 onInput={(event) => {
                   const color = event.currentTarget.value
@@ -111,7 +121,7 @@ export function EyeSettings(props: { readonly target?: string }) {
                     })
                   }
                 >
-                  {ctx.t("settings.color.reset", { color: theme()[key] })}
+                  {ctx.t("settings.color.reset")}
                 </ui.Button>
               </Show>
             </div>

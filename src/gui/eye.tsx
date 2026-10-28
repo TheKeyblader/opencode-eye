@@ -219,22 +219,24 @@ export function Eye(props: {
           <stop offset="100%" style={{ "stop-color": `color-mix(in srgb, ${props.palette.iris} 60%, black)` }} />
         </radialGradient>
       </defs>
-      <circle r={R} fill={props.palette.sclera} />
+      <circle r={R} style={{ fill: props.palette.sclera }} />
       <g clip-path={`url(#${ids.clip})`}>
         <g ref={iris}>
           <circle
             r={geometry().iris}
-            fill={geometry().shaded ? `url(#${ids.iris})` : props.palette.iris}
-            stroke={geometry().shaded ? `color-mix(in srgb, ${props.palette.iris} 45%, black)` : "none"}
+            style={{
+              fill: geometry().shaded ? `url(#${ids.iris})` : props.palette.iris,
+              stroke: geometry().shaded ? `color-mix(in srgb, ${props.palette.iris} 45%, black)` : "none",
+            }}
             stroke-width="1.2"
           />
-          <circle ref={pupilDot} r={geometry().pupil} fill={props.palette.pupil} />
+          <circle ref={pupilDot} r={geometry().pupil} style={{ fill: props.palette.pupil }} />
           <Show when={props.look.stuck}>
             <path
               class="opencode-eye__spiral"
               d={spiral(geometry().iris - 2)}
               fill="none"
-              stroke={props.palette.sclera}
+              style={{ stroke: props.palette.sclera }}
               stroke-width="1.6"
             />
           </Show>
@@ -242,19 +244,19 @@ export function Eye(props: {
             {([x, y, r]) => <circle cx={x} cy={y} r={r} fill="white" opacity="0.85" />}
           </For>
         </g>
-        <path ref={upper} fill={props.palette.lid} />
-        <path ref={lower} fill={props.palette.lid} />
+        <path ref={upper} style={{ fill: props.palette.lid }} />
+        <path ref={lower} style={{ fill: props.palette.lid }} />
         <path
           ref={lash}
           fill="none"
-          stroke={props.palette.outline}
+          style={{ stroke: props.palette.outline }}
           stroke-width={geometry().lash}
           stroke-linecap="round"
         />
       </g>
-      <circle r={R} fill="none" stroke={props.palette.outline} stroke-width={geometry().outline} />
+      <circle r={R} fill="none" style={{ stroke: props.palette.outline }} stroke-width={geometry().outline} />
       <Show when={props.look.mood === "sleeping"}>
-        <g class="opencode-eye__zzz" fill={props.palette.outline}>
+        <g class="opencode-eye__zzz" style={{ fill: props.palette.outline }}>
           <text x="30" y="-30">
             z
           </text>

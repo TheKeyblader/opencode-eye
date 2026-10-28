@@ -6,6 +6,24 @@ import { themePalette, type EyeStyle } from "../src/gui/palette"
 import { setVisible, usePanel } from "./plugin-gui"
 import css from "../src/gui/eye.css?inline"
 
+// The app's theme variables, approximated from the Nord palette (the app derives its own scales).
+const NORD: Record<"light" | "dark", Record<string, string>> = {
+  light: {
+    "--surface-brand-base": "#5e81ac",
+    "--text-strong": "#2e3440",
+    "--text-base": "#4c566a",
+    "--background-base": "#eceff4",
+    "--surface-raised-stronger-non-alpha": "#ffffff",
+  },
+  dark: {
+    "--surface-brand-base": "#88c0d0",
+    "--text-strong": "#e5e9f0",
+    "--text-base": "#a3abb9",
+    "--background-base": "#2e3440",
+    "--surface-raised-stronger-non-alpha": "#3b4252",
+  },
+}
+
 const LOOKS: Record<string, Look> = {
   idle: { mood: "idle" },
   thinking: { mood: "thinking" },
@@ -26,6 +44,9 @@ function App() {
   const [size, setSize] = createSignal(Number(params.get("size") ?? 160))
   const [style, setStyle] = createSignal<EyeStyle>(params.get("style") === "cartoon" ? "cartoon" : "realistic")
   const { visible } = usePanel()
+  // ?theme=nord sets the theme variables, as the app does.
+  const nord = params.get("theme") === "nord"
+  const vars = () => (nord ? NORD[mode()] : {})
   // ?still=<seconds> draws the pose reached after that long, for screenshots.
   const still = params.has("still") ? Number(params.get("still") || 2) : undefined
   let seed = 7
@@ -38,8 +59,9 @@ function App() {
         "min-height": "100vh",
         margin: "0",
         padding: "16px",
-        background: mode() === "dark" ? "#1c1c1f" : "#f6f6f4",
-        color: mode() === "dark" ? "#e6e6e6" : "#1c1c1f",
+        background: nord ? "var(--background-base)" : mode() === "dark" ? "#1c1c1f" : "#f6f6f4",
+        color: nord ? "var(--text-strong)" : mode() === "dark" ? "#e6e6e6" : "#1c1c1f",
+        ...vars(),
       }}
     >
       <style>{css}</style>

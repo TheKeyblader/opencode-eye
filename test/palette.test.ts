@@ -1,7 +1,34 @@
 import { describe, expect, test } from "bun:test"
-import { clampSize, resolvePalette, SIZE, themePalette } from "../src/gui/palette"
+import { clampSize, FALLBACK, resolvePalette, rgbToHex, SIZE, themePalette } from "../src/gui/palette"
 
 const NONE = { iris: "", pupil: "", outline: "" }
+
+describe("themePalette", () => {
+  test("reads the app's theme variables, with a fallback for each", () => {
+    for (const mode of ["light", "dark"] as const) {
+      const palette = themePalette(mode)
+
+      expect(palette.iris).toBe(`var(--surface-brand-base, ${FALLBACK[mode].iris})`)
+      for (const color of Object.values(palette)) expect(color).toContain("var(--")
+    }
+  })
+
+  test("keeps the pupil dark and the white light in both modes", () => {
+    expect(themePalette("light").pupil).toContain("--text-strong")
+    expect(themePalette("dark").pupil).toContain("black")
+    expect(themePalette("dark").sclera).toContain("--text-strong")
+    expect(themePalette("light").sclera).toContain("#ffffff")
+  })
+})
+
+describe("rgbToHex", () => {
+  test("converts what getComputedStyle returns", () => {
+    expect(rgbToHex("rgb(94, 129, 172)")).toBe("#5e81ac")
+    expect(rgbToHex("rgba(46, 52, 64, 0.5)")).toBe("#2e3440")
+    expect(rgbToHex("rgb(94 129 172)")).toBe("#5e81ac")
+    expect(rgbToHex("color(srgb 1 0 0)")).toBeUndefined()
+  })
+})
 
 describe("resolvePalette", () => {
   test("follows the theme while no color is set", () => {

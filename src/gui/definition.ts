@@ -17,6 +17,8 @@ export const definition = Plugin.define({
       }),
       { size: SIZE.initial, style: "realistic", iris: "", pupil: "", outline: "" },
     ),
+    // Icons the user chose, by MCP server name. A store of its own, so it never invalidates the settings above.
+    mcp: Store.global(Schema.Struct({ icons: Schema.Record(Schema.String, Schema.String) }), { icons: {} }),
   },
   i18n: { en, fr },
 })

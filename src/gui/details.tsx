@@ -1,6 +1,6 @@
 import { createSignal, For, onCleanup, Show } from "solid-js"
 import type { Context } from "@opencode/plugin/gui"
-import { runningIcon, toolIcon } from "./icons"
+import { runningIcon, toolIcon, type McpIcons } from "./icons"
 import { formatDuration, stateLabel, toolName, transitionLabel } from "./labels"
 import type { EyeState } from "./state"
 
@@ -8,11 +8,16 @@ import type { EyeState } from "./state"
  * Opens the details of one session's eye: what it shows now, for how long, and its latest transitions. The dialog
  * follows the session it was opened for, whatever the user routes to next.
  */
-export function openDetails(ctx: Context, state: () => EyeState) {
-  ctx.dialogs.open((dialog) => <Details ctx={ctx} state={state} close={dialog.close} />)
+export function openDetails(ctx: Context, state: () => EyeState, icons: () => McpIcons) {
+  ctx.dialogs.open((dialog) => <Details ctx={ctx} state={state} icons={icons} close={dialog.close} />)
 }
 
-function Details(props: { readonly ctx: Context; readonly state: () => EyeState; readonly close: () => void }) {
+function Details(props: {
+  readonly ctx: Context
+  readonly state: () => EyeState
+  readonly icons: () => McpIcons
+  readonly close: () => void
+}) {
   const ctx = props.ctx
   const ui = ctx.ui
   const [now, setNow] = createSignal(Date.now())
@@ -57,7 +62,7 @@ function Details(props: { readonly ctx: Context; readonly state: () => EyeState;
               <For each={[...props.state().tools].reverse()}>
                 {(tool) => (
                   <li>
-                    <ui.Icon name={runningIcon(tool)} size="small" />
+                    <ui.Icon name={runningIcon(tool, props.icons())} size="small" />
                     <code>{toolName(tool) || "?"}</code>
                     <span class="opencode-eye-details__muted">{since(tool.since)}</span>
                   </li>
@@ -104,7 +109,7 @@ function Details(props: { readonly ctx: Context; readonly state: () => EyeState;
                 <li>
                   <span class="opencode-eye-details__muted">{time(item.at)}</span>
                   <Show when={item.tool !== undefined}>
-                    <ui.Icon name={toolIcon(item.tool ?? "")} size="small" />
+                    <ui.Icon name={toolIcon(item.tool ?? "", props.icons())} size="small" />
                   </Show>
                   <span>{transitionLabel(ctx.t, item)}</span>
                   <span class="opencode-eye-details__muted">{formatDuration(until - item.at)}</span>

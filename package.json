@@ -11,7 +11,8 @@
     "dev": "vite build --watch",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "preview": "vite --config vite.preview.config.ts"
+    "preview": "vite --config vite.preview.config.ts",
+    "icons": "bun scripts/icon-names.ts"
   },
   "dependencies": {
     "@opencode/plugin": "2.2.0"

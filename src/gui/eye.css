@@ -287,6 +287,20 @@
   text-align: right;
 }
 
+.opencode-eye-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.opencode-eye-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+  gap: 4px;
+  max-height: 360px;
+  overflow: auto;
+}
+
 .opencode-eye-settings__hint {
   margin: 0 0 8px;
   font-size: 12px;

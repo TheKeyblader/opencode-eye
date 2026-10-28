@@ -1,5 +1,9 @@
 import type { IconName } from "@opencode/plugin/gui"
+import { ICON_NAMES } from "./icon-names"
 import { kindOf, type RunningTool, type ToolKind } from "./state"
+
+/** Icons the user chose, by MCP server name. Values come from storage: check them with `isIconName`. */
+export type McpIcons = Readonly<Record<string, string>>
 
 /** Known tools, by lowercase name. */
 const TOOLS: Readonly<Record<string, IconName>> = {
@@ -41,20 +45,47 @@ const KINDS: Readonly<Record<ToolKind, IconName>> = {
   generic: "extensions",
 }
 
+const VALID: ReadonlySet<string> = new Set(ICON_NAMES)
+
+export const isIconName = (value: string): value is IconName => VALID.has(value)
+
 /**
- * The icon for a tool name. MCP tools (`server.tool` or `server_tool`, unknown here) get the MCP icon; any other
- * unknown name falls back on its kind.
+ * The MCP server a tool belongs to, among `servers`: the tool is the server itself, or is named `server.tool` or
+ * `server_tool`. The longest matching name wins, so `git` does not take `github`'s tools. Case is ignored.
  */
-export function toolIcon(name: string): IconName {
+export function serverOf(tool: string, servers: Iterable<string>): string | undefined {
+  const key = tool.toLowerCase()
+  let best: string | undefined
+
+  for (const server of servers) {
+    const name = server.toLowerCase()
+    const matches = key === name || key.startsWith(`${name}.`) || key.startsWith(`${name}_`)
+
+    if (matches && (!best || name.length > best.length)) best = server
+  }
+
+  return best
+}
+
+/**
+ * The icon for a tool name. Built-in tools keep theirs. An MCP tool takes the icon chosen for its server, else the
+ * MCP icon; any other unknown name falls back on its kind.
+ */
+export function toolIcon(name: string, custom: McpIcons = {}): IconName {
   const key = name.toLowerCase()
   const known = TOOLS[key]
 
   if (known) return known
+
+  const server = serverOf(key, Object.keys(custom))
+  const chosen = server === undefined ? undefined : custom[server]
+
+  if (chosen && isIconName(chosen)) return chosen
   if (key.includes(".") || key.includes("_")) return "mcp"
   return KINDS[kindOf(key)]
 }
 
 /** The icon for a running tool: a wrapper such as `execute` shows the inner tool it runs. */
-export function runningIcon(tool: RunningTool): IconName {
-  return toolIcon(tool.inner ?? tool.name)
+export function runningIcon(tool: RunningTool, custom: McpIcons = {}): IconName {
+  return toolIcon(tool.inner ?? tool.name, custom)
 }

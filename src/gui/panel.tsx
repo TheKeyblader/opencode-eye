@@ -49,7 +49,7 @@ export function EyePanel(props: {
             // The dialog stays on the session it was opened for.
             const id = props.session.id
 
-            openDetails(ctx, () => props.eyes()[id] ?? IDLE)
+            openDetails(ctx, () => props.eyes()[id] ?? IDLE, () => ctx.stores.mcp.value.icons)
           }}
         >
           <Eye
@@ -63,7 +63,7 @@ export function EyePanel(props: {
           <Show when={tool()}>
             {(running) => (
               <span class="opencode-eye__badge" title={toolName(running())}>
-                <ctx.ui.Icon name={runningIcon(running())} size="normal" />
+                <ctx.ui.Icon name={runningIcon(running(), ctx.stores.mcp.value.icons)} size="normal" />
               </span>
             )}
           </Show>

@@ -1,11 +1,13 @@
-import { createSignal, For, Show } from "solid-js"
+import { createMemo, createSignal, For, Show } from "solid-js"
 import { createKeyed, usePlugin } from "@opencode/plugin/gui"
 import type { definition } from "./definition"
 import { Eye } from "./eye"
+import { pickIcon } from "./icon-picker"
+import { isIconName } from "./icons"
 import { clampSize, COLORS, computedHex, FALLBACK, resolvePalette, SIZE, STYLES, themePalette } from "./palette"
 
 /** The search entries of the settings page; each row carries its id so search can reveal it. */
-export const ENTRIES = ["size", "style", "colors", "debug"] as const
+export const ENTRIES = ["size", "style", "colors", "mcp", "debug"] as const
 
 export function EyeSettings(props: { readonly target?: string }) {
   const ctx = usePlugin<typeof definition>()
@@ -129,6 +131,8 @@ export function EyeSettings(props: { readonly target?: string }) {
         </For>
       </section>
 
+      <McpIcons />
+
       <section data-entry="debug">
         <ui.Switch
           label={ctx.t("debug.switch")}
@@ -142,5 +146,91 @@ export function EyeSettings(props: { readonly target?: string }) {
         />
       </section>
     </div>
+  )
+}
+
+/** The MCP servers of the routed session's location (else the default one), and those that already have an icon. */
+function McpIcons() {
+  const ctx = usePlugin<typeof definition>()
+  const ui = ctx.ui
+  const data = () => ctx.servers.get("sidecar")?.data
+  const ref = () => ctx.sessions.current()?.location ?? data()?.location.default()
+  const icons = () => ctx.stores.mcp.value.icons
+
+  // The list loads on demand: ask for it whenever the server or the location changes.
+  createKeyed(
+    () => {
+      const source = data()
+      const location = ref()
+
+      return source && location ? { source, location } : undefined
+    },
+    ({ source, location }) => void source.location.mcp.server.sync(location).catch(() => undefined),
+    { equals: (a, b) => a.source === b.source && a.location.directory === b.location.directory },
+  )
+
+  const servers = createMemo(() => {
+    const listed = data()?.location.mcp.server.list(ref()) ?? []
+    const rows = new Map(listed.map((server) => [server.name, server.title ?? server.name]))
+
+    for (const name of Object.keys(icons())) if (!rows.has(name)) rows.set(name, name)
+    return [...rows].sort(([a], [b]) => a.localeCompare(b)).map(([name, title]) => ({ name, title }))
+  })
+
+  const choose = async (name: string) => {
+    const chosen = icons()[name]
+    const icon = await pickIcon(ctx, {
+      title: ctx.t("settings.mcp.pick", { server: name }),
+      current: chosen && isIconName(chosen) ? chosen : undefined,
+    })
+
+    if (icon)
+      ctx.stores.mcp.update((draft) => {
+        draft.icons[name] = icon
+      })
+  }
+
+  return (
+    <section data-entry="mcp">
+      <h3>{ctx.t("settings.mcp")}</h3>
+      <p class="opencode-eye-settings__hint">{ctx.t("settings.mcp.hint")}</p>
+      <For each={servers()} fallback={<p class="opencode-eye-settings__hint">{ctx.t("settings.mcp.none")}</p>}>
+        {(server) => {
+          const chosen = () => {
+            const icon = icons()[server.name]
+
+            return icon && isIconName(icon) ? icon : undefined
+          }
+
+          return (
+            <div class="opencode-eye-settings__row">
+              <ui.IconButton
+                icon={chosen() ?? "mcp"}
+                label={ctx.t("settings.mcp.pick", { server: server.name })}
+                onClick={() => void choose(server.name)}
+              />
+              <span>{server.title}</span>
+              <Show when={server.title !== server.name}>
+                <code class="opencode-eye-settings__hint">{server.name}</code>
+              </Show>
+              <Show when={chosen()}>
+                <ui.Button
+                  size="small"
+                  variant="ghost"
+                  icon="reset"
+                  onClick={() =>
+                    ctx.stores.mcp.update((draft) => {
+                      delete draft.icons[server.name]
+                    })
+                  }
+                >
+                  {ctx.t("settings.mcp.reset")}
+                </ui.Button>
+              </Show>
+            </div>
+          )
+        }}
+      </For>
+    </section>
   )
 }

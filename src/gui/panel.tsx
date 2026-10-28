@@ -2,6 +2,7 @@ import { createMemo, createSignal, For, Show, type Accessor } from "solid-js"
 import { usePlugin, type MountedSession } from "@opencode/plugin/gui"
 import type { EventLog } from "./debug"
 import type { definition } from "./definition"
+import { openDetails } from "./details"
 import { Eye, themePalette } from "./eye"
 import { runningIcon } from "./icons"
 import { stateLabel, toolName } from "./labels"
@@ -37,7 +38,17 @@ export function EyePanel(props: {
   return (
     <div class="opencode-eye" data-session={props.session.id} data-mood={look().mood}>
       <div class="opencode-eye__stage">
-        <div class="opencode-eye__figure">
+        <button
+          type="button"
+          class="opencode-eye__figure"
+          aria-label={ctx.t("details.open", { state: label() })}
+          onClick={() => {
+            // The dialog stays on the session it was opened for.
+            const id = props.session.id
+
+            openDetails(ctx, () => props.eyes()[id] ?? IDLE)
+          }}
+        >
           <Eye look={look()} size={160} palette={themePalette(ctx.appearance.mode())} label={label()} />
           <Show when={tool()}>
             {(running) => (
@@ -46,7 +57,7 @@ export function EyePanel(props: {
               </span>
             )}
           </Show>
-        </div>
+        </button>
         <p class="opencode-eye__label" aria-live="polite">
           {label()}
         </p>

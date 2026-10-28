@@ -21,6 +21,70 @@
 
 .opencode-eye__figure {
   position: relative;
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.opencode-eye__figure:focus-visible {
+  outline: 2px solid Highlight;
+  outline-offset: 4px;
+}
+
+.opencode-eye-details {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.opencode-eye-details h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.6;
+}
+
+.opencode-eye-details p {
+  margin: 0 0 4px;
+}
+
+.opencode-eye-details ul,
+.opencode-eye-details ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.opencode-eye-details li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.opencode-eye-details li > :last-child {
+  margin-left: auto;
+}
+
+.opencode-eye-details__muted {
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.opencode-eye-details__error {
+  overflow-wrap: anywhere;
+}
+
+.opencode-eye-details__history {
+  max-height: 240px;
+  overflow: auto;
 }
 
 /* The running tool's icon, pinned to the eye's lower right edge. */

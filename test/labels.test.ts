@@ -1,49 +1,60 @@
 import { describe, expect, test } from "bun:test"
-import { formatDuration, moodLabel, stateLabel, toolName, transitionLabel } from "../src/gui/labels"
-import { initial } from "../src/gui/state"
+import { fr } from "../src/gui/i18n"
+import { announced, formatDuration, statusDot, viewLabel } from "../src/gui/labels"
+import { STATES, type EyeView } from "../src/gui/machine"
 
-// Echoes the key and its params, so tests read which copy was asked for.
-const t = (key: string, params?: Record<string, string | number | boolean>) =>
-  params ? `${key}(${Object.values(params).join(",")})` : key
+const t = (key: string) => fr[key as keyof typeof fr] ?? key
+const view = (fields: Partial<EyeView>): EyeView => ({
+  state: "idle",
+  tool: null,
+  count: 0,
+  mods: { impatient: false, bored: false, tired: false },
+  since: 0,
+  history: [],
+  ...fields,
+})
+const grep = { callId: "c1", name: "grep", kind: "read" as const, since: 0 }
 
-describe("formatDuration", () => {
-  test("picks the unit by size", () => {
-    expect(formatDuration(-5)).toBe("< 1 s")
-    expect(formatDuration(999)).toBe("< 1 s")
-    expect(formatDuration(42_000)).toBe("42 s")
-    expect(formatDuration(185_000)).toBe("3 min 05 s")
-    expect(formatDuration(3_720_000)).toBe("1 h 02 min")
+describe("viewLabel", () => {
+  test("the spec's labels", () => {
+    expect(viewLabel(t, view({}))).toBe("Au repos")
+    expect(viewLabel(t, view({ state: "read", tool: grep }))).toBe("Lit · grep")
+    expect(viewLabel(t, view({ state: "error-spiral" }))).toBe("Quelque chose a échoué")
+    expect(viewLabel(t, view({ state: "surprised" }))).toBe("Te revoilà")
+  })
+
+  test("the modifiers change it", () => {
+    const mods = { impatient: true, bored: true, tired: false }
+
+    expect(viewLabel(t, view({ mods }))).toBe("S'ennuie")
+    expect(viewLabel(t, view({ state: "read", tool: grep, mods }))).toBe("Lit · grep · ça traîne")
+  })
+
+  test("every state has a label", () => {
+    for (const state of STATES) expect(viewLabel(t, view({ state }))).not.toContain("state.")
   })
 })
 
-describe("labels", () => {
-  test("a tool reads as its kind's verb and its name", () => {
-    expect(moodLabel(t, "tool", { id: "c1", name: "grep", kind: "read", since: 0 })).toBe("tool.read · grep")
-    expect(moodLabel(t, "tool", { id: "c1", name: "", kind: "generic", since: 0 })).toBe("tool.generic")
-    expect(moodLabel(t, "thinking")).toBe("mood.thinking")
+describe("announced", () => {
+  test("only attention, the errors and the end of a run", () => {
+    expect(STATES.filter(announced)).toEqual(["attention", "error-flash", "error", "error-spiral", "happy", "vexed"])
   })
+})
 
-  test("a wrapper shows its inner tool", () => {
-    expect(toolName({ id: "c1", name: "execute", kind: "generic", since: 0, inner: "tracker.get_issue" })).toBe(
-      "execute → tracker.get_issue",
-    )
+describe("statusDot", () => {
+  test("blinks while waiting, is red on an error, lit at work", () => {
+    expect(statusDot("attention")).toBe("att")
+    expect(statusDot("error")).toBe("err")
+    expect(statusDot("read")).toBe("on")
+    expect(statusDot("idle")).toBe("")
   })
+})
 
-  test("a state reads as its mood and shown tool", () => {
-    const state = {
-      ...initial(0),
-      mood: "tool" as const,
-      tools: [{ id: "c1", name: "shell", kind: "shell" as const, since: 0 }],
-    }
-
-    expect(stateLabel(t, state)).toBe("tool.shell · shell")
-    expect(stateLabel(t, initial(0))).toBe("mood.idle")
-  })
-
-  test("a past tool transition gets its kind back from its name", () => {
-    expect(transitionLabel(t, { at: 0, mood: "tool", tool: "patch", event: "session.tool.input.started" })).toBe(
-      "tool.edit · patch",
-    )
-    expect(transitionLabel(t, { at: 0, mood: "sleeping", event: "session.compaction.started" })).toBe("mood.sleeping")
+describe("formatDuration", () => {
+  test("short durations", () => {
+    expect(formatDuration(400)).toBe("< 1 s")
+    expect(formatDuration(42_000)).toBe("42 s")
+    expect(formatDuration(185_000)).toBe("3 min 05 s")
+    expect(formatDuration(3_720_000)).toBe("1 h 02 min")
   })
 })

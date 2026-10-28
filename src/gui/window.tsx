@@ -1,4 +1,4 @@
-import { createMemo, createSignal, onCleanup, untrack } from "solid-js"
+import { createSignal, onCleanup, untrack } from "solid-js"
 import {
   Command,
   createKeyed,
@@ -9,34 +9,130 @@ import {
   type PanelTab,
   type Plugin,
 } from "@opencode/plugin/gui"
+import { adapt, sessionOf, stepUsage } from "./adapt"
 import { createEventLog } from "./debug"
 import type { definition } from "./definition"
+import { NO_MODS } from "./gallery"
+import { EyeStateMachine, sameView, type EyeEvent, type EyeView } from "./machine"
 import { EyePanel } from "./panel"
 import { ENTRIES, EyeSettings } from "./settings"
 import { seed } from "./seed"
-import { deadline, reduceSessions, SEED, TICK, type Sessions } from "./state"
 import css from "./eye.css?inline"
 
 export const TAB = "eye"
 
+/** Every session's eye, as the panel reads it. */
+export interface Eyes {
+  /** What the eye of a session shows. Reactive. */
+  view(sessionID: string): EyeView
+  /** Lets time pass for a session's eye: the panel calls it while it is on screen. */
+  tick(sessionID: string): void
+  /** Fills in the eye of a session it has seen no event of yet, from what the server holds. */
+  ensure(sessionID: string): void
+}
+
+const RESTING: EyeView = { state: "idle", tool: null, count: 0, mods: NO_MODS, since: 0, history: [] }
+
 export const setup: Plugin.Setup<typeof definition> = (ctx) => {
+  type ServerData = NonNullable<ReturnType<typeof ctx.servers.get>>["data"]
+
   const key = `${ctx.id}:${TAB}`
   const log = createEventLog()
-  const [eyes, setEyes] = createSignal<Sessions>({})
 
   ctx.add(Style, css)
 
-  // Every session's eye, from the app's own server. A restarted server gives a new `data`, which the subscription
-  // follows. The state lives here, not in the panel, so an eye opened mid-run already knows what is going on.
+  // The machines hold each session's state; the signal holds what the eyes show, so a tick that changes nothing
+  // re-renders nothing. They live here, not in the panel, so an eye opened mid-run already knows what is going on.
+  const machines = new Map<string, EyeStateMachine>()
+  const [views, setViews] = createSignal<Readonly<Record<string, EyeView>>>({})
+  const machine = (sessionID: string) => {
+    let found = machines.get(sessionID)
+
+    if (!found) machines.set(sessionID, (found = new EyeStateMachine()))
+    return found
+  }
+  const publish = (sessionID: string, view: EyeView) =>
+    setViews((all) => {
+      const known = all[sessionID]
+
+      return known && sameView(known, view) ? all : { ...all, [sessionID]: view }
+    })
+  const dispatch = (sessionID: string, events: readonly EyeEvent[]) => {
+    const now = Date.now()
+    const eye = machine(sessionID)
+
+    for (const event of events) eye.dispatch(event, now)
+    publish(sessionID, eye.tick(now))
+  }
+
+  // The context a step left, over its model's context window: the `tired` modifier.
+  const usage = (data: ServerData, sessionID: string, messageID: string, tokens: number) => {
+    try {
+      const message = data.session.message.get(sessionID, messageID)
+      const model = message?.type === "assistant" ? message.model : undefined
+
+      if (!model) return
+      const location = data.session.get(sessionID).location
+      const models = data.location.model.list(location)
+
+      if (!models) {
+        // The models load on demand: the next step will find them.
+        void data.location.model.sync(location).catch(() => undefined)
+        return
+      }
+      const info = models.find(
+        (item) => item.providerID === model.providerID && (item.id === model.id || item.modelID === model.id),
+      )
+
+      if (info?.limit.context) dispatch(sessionID, [{ type: "context.usage", ratio: tokens / info.limit.context }])
+    } catch {
+      // A session or a message the server data does not hold: no usage, no tired eye.
+    }
+  }
+
+  // The app's own server. A restarted server gives a new `data`, which the subscription follows.
   createKeyed(
     () => ctx.servers.get("sidecar")?.data,
     (data) =>
-      onCleanup(data.listen((event) => setEyes((sessions) => reduceSessions(sessions, event.details, Date.now())))),
+      onCleanup(
+        data.listen(({ details }) => {
+          const sessionID = sessionOf(details)
+
+          if (!sessionID) return
+          if (details.type === "session.deleted") {
+            machines.delete(sessionID)
+            setViews(({ [sessionID]: _, ...rest }) => rest)
+            return
+          }
+          const events = adapt(details)
+
+          if (events.length) dispatch(sessionID, events)
+          const step = stepUsage(details)
+
+          if (step) untrack(() => usage(data, sessionID, step.messageID, step.tokens))
+        }),
+      ),
   )
 
+  // Back after a while away: the eyes are surprised.
+  let hiddenAt: number | undefined
+  const onVisibility = () => {
+    if (document.hidden) {
+      hiddenAt = Date.now()
+      return
+    }
+    if (hiddenAt === undefined) return
+    const awayMs = Date.now() - hiddenAt
+
+    hiddenAt = undefined
+    for (const sessionID of machines.keys()) dispatch(sessionID, [{ type: "window.visible", awayMs }])
+  }
+
+  document.addEventListener("visibilitychange", onVisibility)
+  onCleanup(() => document.removeEventListener("visibilitychange", onVisibility))
+
   // An eye shown on a session it has seen no event of yet (the plugin loaded mid-run) starts from what the server
-  // already holds: whether it runs, its tools in flight, its pending approvals and questions. Once per session and
-  // server; then the events take over.
+  // already holds. Once per session and server; then the events take over.
   let seededFor: unknown
   const seeded = new Set<string>()
   const ensure = (sessionID: string) => {
@@ -67,7 +163,8 @@ export const setup: Plugin.Setup<typeof definition> = (ctx) => {
         return
       }
 
-      setEyes((sessions) => reduceSessions(sessions, { type: SEED, data: snapshot }, Date.now()))
+      publish(sessionID, machine(sessionID).seed(snapshot, Date.now()))
+      if (snapshot.usage) untrack(() => usage(data, sessionID, snapshot.usage!.messageID, snapshot.usage!.tokens))
     }
 
     apply()
@@ -75,25 +172,15 @@ export const setup: Plugin.Setup<typeof definition> = (ctx) => {
     void Promise.allSettled([data.session.permission.sync(sessionID), data.session.form.sync(sessionID)]).then(apply)
   }
 
-  // A failed tool only flashes: wake the machine when the earliest flash ends.
-  const wake = createMemo(() => {
-    const now = Date.now()
+  const eyes: Eyes = {
+    view: (sessionID) => views()[sessionID] ?? RESTING,
+    tick: (sessionID) => {
+      const eye = machines.get(sessionID)
 
-    return Object.values(eyes()).reduce<number | undefined>((earliest, state) => {
-      const at = deadline(state, now)
-
-      return at !== undefined && (earliest === undefined || at < earliest) ? at : earliest
-    }, undefined)
-  })
-
-  createKeyed(wake, (at) => {
-    const timer = setTimeout(
-      () => setEyes((sessions) => reduceSessions(sessions, { type: TICK }, Date.now())),
-      Math.max(0, at - Date.now()),
-    )
-
-    onCleanup(() => clearTimeout(timer))
-  })
+      if (eye) publish(sessionID, eye.tick(Date.now()))
+    },
+    ensure,
+  }
 
   // Debug: every event of the app's own server, only while the log is on.
   createKeyed(
@@ -130,7 +217,7 @@ export const setup: Plugin.Setup<typeof definition> = (ctx) => {
     },
     list: (input) => (input.open.includes(TAB) ? [tab] : []),
     // props.session is a getter that follows session switches: pass it through, never destructure.
-    render: (props) => <EyePanel session={props.session} eyes={eyes} ensure={ensure} log={log} />,
+    render: (props) => <EyePanel session={props.session} eyes={eyes} log={log} />,
   })
 
   ctx.add(

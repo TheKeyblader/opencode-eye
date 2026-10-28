@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { seed, type SeedSource } from "../src/gui/seed"
-import { currentTool, initial, reduce, reduceSessions, SEED, type EyeEvent } from "../src/gui/state"
+import { EyeStateMachine } from "../src/gui/machine"
 
 const IDLE: SeedSource = { status: "idle", messages: [], permissions: [], forms: [] }
 
@@ -13,9 +13,18 @@ const tool = (id: string, name: string, status: string) => ({
 })
 const assistant = (...content: unknown[]) => ({ type: "assistant", id: "msg_1", content })
 
-const seedEvent = (source: SeedSource): EyeEvent => ({ type: SEED, data: seed("ses_a", source) })
-
 describe("seed", () => {
+  test("reads what the latest answer put in the context", () => {
+    const tokens = { input: 100, output: 20, reasoning: 0, cache: { read: 0, write: 0 } }
+    const messages = [
+      { type: "assistant", id: "msg_1", content: [], tokens: { ...tokens, input: 50 } },
+      { type: "assistant", id: "msg_2", content: [], tokens },
+      { type: "assistant", id: "msg_3", content: [] },
+    ]
+
+    expect(seed("ses_a", { ...IDLE, messages }).usage).toEqual({ messageID: "msg_2", tokens: 120 })
+  })
+
   test("lists the tools in flight of a running session", () => {
     const out = seed("ses_a", {
       ...IDLE,
@@ -57,74 +66,27 @@ describe("seed", () => {
   })
 })
 
-describe("the eye.seed event", () => {
-  test("an eye that joins mid-run shows the tool in flight, not rest", () => {
-    const state = reduce(
-      initial(0),
-      seedEvent({ ...IDLE, status: "running", messages: [assistant(tool("c1", "shell", "running"))] }),
+describe("a seeded eye", () => {
+  test("joins mid-run on the tool in flight, not at rest", () => {
+    const view = new EyeStateMachine({}, 0).seed(
+      seed("ses_a", { ...IDLE, status: "running", messages: [assistant(tool("c1", "shell", "running"))] }),
       5,
     )
 
-    expect(state.mood).toBe("tool")
-    expect(currentTool(state)).toMatchObject({ id: "c1", name: "shell", kind: "shell" })
+    expect(view.state).toBe("shell")
+    expect(view.tool?.name).toBe("shell")
   })
 
   test("a running session with no tool in flight thinks", () => {
-    expect(reduce(initial(0), seedEvent({ ...IDLE, status: "running" }), 5).mood).toBe("thinking")
+    expect(new EyeStateMachine({}, 0).seed(seed("ses_a", { ...IDLE, status: "running" }), 5).state).toBe("think")
   })
 
-  test("a pending approval stares", () => {
-    const state = reduce(initial(0), seedEvent({ ...IDLE, permissions: [{ id: "per_1", action: "shell" }] }), 5)
+  test("then the events take over", () => {
+    const machine = new EyeStateMachine({}, 0)
 
-    expect(state.mood).toBe("attention")
-  })
-
-  test("an idle session stays as it is", () => {
-    const state = initial(0)
-
-    expect(reduce(state, seedEvent(IDLE), 5)).toBe(state)
-  })
-
-  test("the events then take over: the tool ends and the run ends", () => {
-    let state = reduce(
-      initial(0),
-      seedEvent({ ...IDLE, status: "running", messages: [assistant(tool("c1", "shell", "running"))] }),
-      5,
-    )
-
-    state = reduce(state, { type: "session.tool.success", data: { sessionID: "ses_a", id: "c1" } }, 6)
-    expect(state.mood).toBe("thinking")
-    state = reduce(state, { type: "session.execution.succeeded", data: { sessionID: "ses_a" } }, 7)
-    expect(state.mood).toBe("idle")
-  })
-
-  test("a second seed only adds what loaded since, such as approvals", () => {
-    const first = reduce(initial(0), seedEvent({ ...IDLE, status: "running" }), 5)
-    const second = reduce(
-      first,
-      seedEvent({ ...IDLE, status: "running", permissions: [{ id: "per_1", action: "shell" }] }),
-      6,
-    )
-
-    expect(second.mood).toBe("attention")
-    expect(second.asks).toHaveLength(1)
-    expect(reduce(second, seedEvent({ ...IDLE, status: "running", permissions: [{ id: "per_1", action: "shell" }] }), 7)).toBe(
-      second,
-    )
-  })
-
-  test("once the eye saw a transition of its own, a seed changes nothing", () => {
-    const seen = reduce(initial(0), { type: "session.execution.succeeded", data: { sessionID: "ses_a" } }, 1)
-    const known = reduce(seen, { type: "session.execution.started", data: { sessionID: "ses_a" } }, 2)
-    const ended = reduce(known, { type: "session.execution.succeeded", data: { sessionID: "ses_a" } }, 3)
-
-    // The snapshot was taken before the end reached the server data: it must not bring the run back.
-    expect(reduce(ended, seedEvent({ ...IDLE, status: "running" }), 4)).toBe(ended)
-  })
-
-  test("reaches the right session through reduceSessions", () => {
-    const sessions = reduceSessions({}, seedEvent({ ...IDLE, status: "running" }), 5)
-
-    expect(sessions.ses_a?.mood).toBe("thinking")
+    machine.seed(seed("ses_a", { ...IDLE, status: "running", messages: [assistant(tool("c1", "shell", "running"))] }), 5)
+    machine.dispatch({ type: "tool.success", callId: "c1" }, 1000)
+    expect(machine.tick(1300).state).toBe("think")
+    expect(machine.dispatch({ type: "execution.succeeded" }, 2000).state).toBe("happy")
   })
 })

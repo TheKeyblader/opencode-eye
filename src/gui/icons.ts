@@ -1,6 +1,6 @@
 import type { IconName } from "@opencode/plugin/gui"
 import { ICON_NAMES } from "./icon-names"
-import { kindOf, type RunningTool, type ToolKind } from "./state"
+import { classifyTool, type ToolKind } from "./machine"
 
 /** Icons the user chose, by MCP server name. Values come from storage: check them with `isIconName`. */
 export type McpIcons = Readonly<Record<string, string>>
@@ -37,11 +37,14 @@ const TOOLS: Readonly<Record<string, IconName>> = {
   skill: "post-skill",
 }
 
-/** Unknown tools, by the kind the state machine gives them. */
+/** Unknown tools, by the kind the state machine gives them: the spec's magnifier, pencil, terminal, branch… */
 const KINDS: Readonly<Record<ToolKind, IconName>> = {
-  read: "glasses",
-  edit: "edit",
-  shell: "console",
+  read: "magnifying-glass",
+  write: "pencil-line",
+  shell: "terminal",
+  delegate: "branch",
+  web: "globe",
+  plan: "checklist",
   generic: "extensions",
 }
 
@@ -82,10 +85,6 @@ export function toolIcon(name: string, custom: McpIcons = {}): IconName {
 
   if (chosen && isIconName(chosen)) return chosen
   if (key.includes(".") || key.includes("_")) return "mcp"
-  return KINDS[kindOf(key)]
+  return KINDS[classifyTool(key)]
 }
 
-/** The icon for a running tool: a wrapper such as `execute` shows the inner tool it runs. */
-export function runningIcon(tool: RunningTool, custom: McpIcons = {}): IconName {
-  return toolIcon(tool.inner ?? tool.name, custom)
-}

@@ -1,3 +1,923 @@
+/* =====================================================================
+   The eye, from reference/eye.css (validated in the mock-up).
+   Root: .opencode-eye-root with data-theme, data-brow, data-reduced,
+         data-impatient, data-tired, data-compact (on under 120 px).
+   States: data-state on .eye and on .stage (same values).
+   The engine writes --look-x, --lid, --lx…: never set them here.
+   Every rule sits under the root: the app's own classes stay untouched.
+   ===================================================================== */
+
+/* ---------- Tokens: the app's theme first, the mock-up's values as fallbacks ---------- */
+.opencode-eye-root {
+  --bg: var(--background-base, #16181d);
+  --bg2: var(--surface-raised-stronger-non-alpha, #1c1f25);
+  --line: var(--border-weak-base, #2a2e36);
+  --text: var(--text-strong, #d5d8de);
+  --muted: var(--icon-base, #8d929d);
+  --contour: var(--surface-brand-base, #8fb3ff);
+  --pupil-c: var(--contour);
+  --fill: color-mix(in oklch, var(--contour) 9%, transparent);
+  --err: #ff9a6b;
+  --stroke-w: 3.5;
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.8, 0.5, 1);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+}
+
+.opencode-eye-root[data-theme="light"] {
+  --bg: var(--background-base, #fbfbfa);
+  --bg2: var(--surface-raised-stronger-non-alpha, #f1f1ee);
+  --line: var(--border-weak-base, #dcdbd6);
+  --text: var(--text-strong, #26282d);
+  --muted: var(--icon-base, #5d616a);
+  --contour: var(--surface-brand-base, #2f55c8);
+  --err: #c2410c;
+}
+
+/* ---------- Layout ---------- */
+.opencode-eye-root .eye-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.opencode-eye-root .eye-btn {
+  appearance: none;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+}
+
+.opencode-eye-root button.eye-btn {
+  cursor: pointer;
+}
+
+.opencode-eye-root .eye-btn:focus-visible {
+  outline: 2px solid var(--contour);
+  outline-offset: 6px;
+}
+
+.opencode-eye-root .eye-badge {
+  position: absolute;
+  top: 2%;
+  right: -16%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 70%;
+  padding: 5px 8px;
+  border: 1.5px solid var(--contour);
+  border-radius: 4px;
+  color: var(--contour);
+  background: var(--bg);
+  font: 600 11px/1 ui-monospace, "JetBrains Mono", monospace;
+  white-space: nowrap;
+  animation: opencode-eye-pop 0.45s var(--ease-pop) both;
+  pointer-events: none;
+}
+
+.opencode-eye-root .eye-badge > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.opencode-eye-root .eye-badge .count {
+  flex: none;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: var(--contour);
+  color: var(--bg);
+}
+
+.opencode-eye-root .eye-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  font: 12px/1.3 ui-monospace, monospace;
+  color: var(--muted);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.opencode-eye-root .eye-status .dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--muted);
+}
+
+.opencode-eye-root .eye-status .dot.on {
+  background: var(--contour);
+}
+
+.opencode-eye-root .eye-status .dot.err {
+  background: var(--err);
+}
+
+.opencode-eye-root .eye-status .dot.att {
+  background: var(--contour);
+  animation: opencode-eye-blinkdot 1s steps(1) infinite;
+}
+
+/* ---------- The eye ---------- */
+.opencode-eye-root .eye {
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 0 10px color-mix(in oklch, var(--contour) 35%, transparent));
+}
+
+.opencode-eye-root .eye .body {
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+  transform: translateX(calc(var(--shake, 0) * 1px)) scale(var(--kick, 1));
+}
+
+.opencode-eye-root .eye .lids {
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+  transform: scaleY(calc(1 - var(--lid, 0) * 0.94));
+  transition: opacity 0.14s;
+}
+
+.opencode-eye-root .eye .look {
+  transform: translate(calc(var(--look-x, 0) * 1px), calc(var(--look-y, 0) * 1px));
+  transition: opacity 0.25s;
+}
+
+.opencode-eye-root .eye .pupil {
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+  transform: scale(var(--pupil, 1));
+}
+
+.opencode-eye-root .eye .ring {
+  fill: var(--fill);
+  stroke: var(--contour);
+  stroke-width: var(--stroke-w);
+  transition: stroke 0.2s;
+}
+
+.opencode-eye-root .eye .tick {
+  stroke: var(--contour);
+  stroke-width: var(--stroke-w);
+  stroke-linecap: round;
+  transition: stroke 0.2s;
+}
+
+.opencode-eye-root .eye .ticks {
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+  transition:
+    transform 0.5s var(--ease-pop),
+    opacity 0.4s;
+}
+
+.opencode-eye-root .eye .pup {
+  fill: var(--pupil-c);
+  transition: fill 0.2s;
+}
+
+.opencode-eye-root .eye .brow-g {
+  transform-box: view-box;
+  transform-origin: 100px -10px;
+  transform: translateY(calc(var(--brow-y, 0) * 1px)) rotate(calc(var(--brow-r, 0) * 1deg));
+}
+
+.opencode-eye-root .eye .brow {
+  fill: none;
+  stroke: var(--contour);
+  stroke-width: calc(var(--stroke-w) * 1.15);
+  stroke-linecap: round;
+  transition: stroke 0.2s;
+}
+
+.opencode-eye-root[data-brow="off"] .brow-g {
+  display: none;
+}
+
+/* errors */
+.opencode-eye-root .eye .spiral-g {
+  opacity: 0;
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+  transition: opacity 0.3s;
+}
+
+.opencode-eye-root .eye .spiral {
+  fill: none;
+  stroke: var(--err);
+  stroke-width: var(--stroke-w);
+  stroke-linecap: round;
+}
+
+.opencode-eye-root .eye[data-state="error-spiral"] .spiral-g {
+  opacity: 1;
+  animation: opencode-eye-spin 1.8s linear infinite;
+}
+
+.opencode-eye-root .eye[data-state="error-spiral"] .look {
+  opacity: 0;
+}
+
+.opencode-eye-root .eye[data-state^="error"] .ring,
+.opencode-eye-root .eye[data-state^="error"] .tick,
+.opencode-eye-root .eye[data-state^="error"] .brow {
+  stroke: var(--err);
+}
+
+.opencode-eye-root .eye[data-state^="error"] .pup {
+  fill: var(--err);
+}
+
+.opencode-eye-root .eye .stars {
+  opacity: 0;
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+  transition: opacity 0.2s;
+}
+
+.opencode-eye-root .eye[data-state^="error"] .stars {
+  opacity: 1;
+  animation: opencode-eye-spin 2.2s linear infinite;
+}
+
+.opencode-eye-root .eye .star {
+  fill: var(--err);
+}
+
+/* attention */
+.opencode-eye-root .eye .halo {
+  fill: none;
+  stroke: var(--contour);
+  stroke-width: 2;
+  opacity: 0;
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+}
+
+.opencode-eye-root .eye[data-state="attention"] .halo {
+  animation: opencode-eye-ping 1.6s ease-out infinite;
+}
+
+.opencode-eye-root .eye[data-state="attention"] .ticks {
+  transform: scale(1.07);
+}
+
+/* sleep */
+.opencode-eye-root .eye[data-state="sleep"] .ticks {
+  opacity: 0.35;
+}
+
+.opencode-eye-root .eye .zz {
+  fill: var(--contour);
+  font: 600 20px ui-monospace, "JetBrains Mono", monospace;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.opencode-eye-root .eye[data-state="sleep"] .zz {
+  animation: opencode-eye-zfloat 2.6s ease-out infinite;
+}
+
+.opencode-eye-root .eye[data-state="sleep"] .z2 {
+  animation-delay: 0.85s;
+}
+
+.opencode-eye-root .eye[data-state="sleep"] .z3 {
+  animation-delay: 1.7s;
+}
+
+/* happy */
+.opencode-eye-root .eye .smile {
+  fill: none;
+  stroke: var(--contour);
+  stroke-width: calc(var(--stroke-w) * 1.3);
+  stroke-linecap: round;
+  opacity: 0;
+  transform-box: view-box;
+  transform-origin: 100px 96px;
+  transform: scale(0.5);
+  transition:
+    opacity 0.15s,
+    transform 0.45s var(--ease-bounce);
+}
+
+.opencode-eye-root .eye[data-state="happy"] .smile {
+  opacity: 1;
+  transform: none;
+}
+
+.opencode-eye-root .eye[data-state="happy"] .lids {
+  opacity: 0;
+}
+
+.opencode-eye-root .eye .cf {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.opencode-eye-root .eye .cf:nth-child(3n + 1) {
+  fill: var(--contour);
+}
+
+.opencode-eye-root .eye .cf:nth-child(3n + 2) {
+  fill: var(--muted);
+}
+
+.opencode-eye-root .eye .cf:nth-child(3n) {
+  fill: var(--pupil-c);
+}
+
+.opencode-eye-root .eye[data-state="happy"] .cf {
+  animation: opencode-eye-fall 1.1s ease-in both;
+}
+
+/* think: the bubble */
+.opencode-eye-root .eye .bubble {
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+  transform: scaleX(var(--bub-s, 1));
+}
+
+.opencode-eye-root .eye .bub-part {
+  fill: var(--bg);
+  stroke: var(--contour);
+  stroke-width: 2.5;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(0.3);
+  transition:
+    opacity 0.2s,
+    transform 0.45s var(--ease-bounce);
+}
+
+.opencode-eye-root .eye .b2 {
+  transition-delay: 0.08s;
+}
+
+.opencode-eye-root .eye .b3 {
+  transition-delay: 0.16s;
+}
+
+.opencode-eye-root .eye[data-state="think"] .bub-part {
+  opacity: 1;
+  transform: none;
+}
+
+.opencode-eye-root .eye .bdot {
+  fill: var(--contour);
+  opacity: 0;
+}
+
+.opencode-eye-root .eye[data-state="think"] .bdot {
+  animation: opencode-eye-bdot 1.2s ease-in-out infinite;
+}
+
+.opencode-eye-root .eye[data-state="think"] .d2 {
+  animation-delay: 0.15s;
+}
+
+.opencode-eye-root .eye[data-state="think"] .d3 {
+  animation-delay: 0.3s;
+}
+
+/* modifiers */
+.opencode-eye-root .eye .hourglass,
+.opencode-eye-root .eye .coffee {
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.opencode-eye-root[data-impatient="on"] .eye[data-tool="yes"] .hourglass {
+  opacity: 1;
+}
+
+.opencode-eye-root[data-tired="on"] .eye .coffee {
+  opacity: 1;
+}
+
+.opencode-eye-root .eye .hg {
+  animation: opencode-eye-flip 1.8s ease-in-out infinite;
+}
+
+.opencode-eye-root .eye .hg-l {
+  fill: none;
+  stroke: var(--contour);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.opencode-eye-root .eye .hg-s {
+  fill: var(--contour);
+}
+
+.opencode-eye-root .eye .cup {
+  fill: var(--bg);
+  stroke: var(--contour);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+
+.opencode-eye-root .eye .cup-h {
+  fill: none;
+  stroke: var(--contour);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.opencode-eye-root .eye .steam {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  animation: opencode-eye-steam 2s ease-in-out infinite;
+}
+
+.opencode-eye-root .eye .s2 {
+  animation-delay: -1s;
+}
+
+/* ---------- The scene under the eye ---------- */
+.opencode-eye-root .stage {
+  display: block;
+  overflow: visible;
+  margin: 4px auto 0;
+}
+
+.opencode-eye-root .stage .ln {
+  fill: none;
+  stroke: var(--contour);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.opencode-eye-root .stage .bgf {
+  fill: var(--bg);
+}
+
+.opencode-eye-root .stage .mut {
+  stroke: var(--muted);
+}
+
+.opencode-eye-root .stage .fillc {
+  fill: var(--contour);
+}
+
+/* every prop comes in the same way */
+.opencode-eye-root .stage .prop,
+.opencode-eye-root .stage .paper-g {
+  opacity: 0;
+  transform-box: view-box;
+  transform-origin: 100px 118px;
+  transform: translateY(18px) scale(0.6);
+  transition:
+    transform 0.5s var(--ease-pop),
+    opacity 0.2s;
+}
+
+.opencode-eye-root .stage[data-state="read"] .paper-g,
+.opencode-eye-root .stage[data-state="write"] .paper-g,
+.opencode-eye-root .stage[data-state="shell"] .p-term,
+.opencode-eye-root .stage[data-state="generic"] .p-puzzle,
+.opencode-eye-root .stage[data-state="delegate"] .p-mini,
+.opencode-eye-root .stage[data-state="web"] .p-globe,
+.opencode-eye-root .stage[data-state="plan"] .p-plan,
+.opencode-eye-root .stage[data-state="respond"] .p-speech,
+.opencode-eye-root .stage[data-state="attention"] .p-ask,
+.opencode-eye-root .stage[data-state="sleep"] .p-pillow {
+  opacity: 1;
+  transform: none;
+}
+
+/* read / write */
+.opencode-eye-root .stage .paper {
+  fill: var(--bg);
+  stroke: var(--contour);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.opencode-eye-root .stage .fold {
+  fill: none;
+  stroke: var(--contour);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.opencode-eye-root .stage .txt {
+  stroke: var(--muted);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0;
+  transition:
+    opacity 0.2s,
+    stroke 0.2s;
+}
+
+.opencode-eye-root .stage[data-state="read"] .txt {
+  opacity: 0.45;
+}
+
+.opencode-eye-root .stage[data-state="read"][data-line="0"] .txt:nth-of-type(1),
+.opencode-eye-root .stage[data-state="read"][data-line="1"] .txt:nth-of-type(2),
+.opencode-eye-root .stage[data-state="read"][data-line="2"] .txt:nth-of-type(3),
+.opencode-eye-root .stage[data-state="read"][data-line="3"] .txt:nth-of-type(4) {
+  opacity: 1;
+  stroke: var(--contour);
+}
+
+.opencode-eye-root .stage .wline {
+  fill: none;
+  stroke: var(--contour);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0;
+}
+
+.opencode-eye-root .stage[data-state="write"] .wline {
+  opacity: 1;
+}
+
+.opencode-eye-root .stage .loupe-g {
+  transform: translate(calc(var(--lx, 64) * 1px), calc(var(--ly, 32) * 1px));
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.opencode-eye-root .stage[data-state="read"] .loupe-g {
+  opacity: 1;
+}
+
+.opencode-eye-root .stage .lens {
+  fill: color-mix(in oklch, var(--contour) 14%, var(--bg));
+  fill-opacity: 0.55;
+  stroke: var(--contour);
+  stroke-width: 2.5;
+}
+
+.opencode-eye-root .stage .handle {
+  stroke: var(--contour);
+  stroke-width: 4.5;
+  stroke-linecap: round;
+}
+
+.opencode-eye-root .stage .pen-g {
+  transform: translate(calc(var(--px, 64) * 1px), calc(var(--py, 32) * 1px)) rotate(calc(var(--pr, 0) * 1deg));
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.opencode-eye-root .stage[data-state="write"] .pen-g {
+  opacity: 1;
+}
+
+.opencode-eye-root .stage .pen {
+  fill: var(--bg);
+  stroke: var(--contour);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.opencode-eye-root .stage .pen-tip {
+  fill: var(--contour);
+}
+
+/* shell */
+.opencode-eye-root .stage .t-scroll {
+  animation: opencode-eye-tscroll 2.6s ease-in-out infinite;
+}
+
+.opencode-eye-root .stage .t-cur {
+  fill: var(--contour);
+  animation: opencode-eye-caret 1s steps(1) infinite;
+}
+
+/* generic */
+.opencode-eye-root .stage .pz-pos {
+  transform: translate(calc(var(--zx, 100) * 1px), calc(var(--zy, 60) * 1px));
+}
+
+.opencode-eye-root .stage .pz {
+  animation: opencode-eye-spin 5s linear infinite;
+}
+
+/* delegate */
+.opencode-eye-root .stage .mini-pos {
+  transform: translate(calc(var(--mix, 100) * 1px), calc(var(--miy, 62) * 1px));
+}
+
+.opencode-eye-root .stage .mini-look {
+  transform: translate(calc(var(--mpx, 0) * 1px), calc(var(--mpy, 0) * 1px));
+}
+
+.opencode-eye-root .stage .mini-pup {
+  fill: var(--pupil-c);
+}
+
+/* web */
+.opencode-eye-root .stage .g-mer {
+  transform-box: fill-box;
+  transform-origin: center;
+  vector-effect: non-scaling-stroke;
+  animation: opencode-eye-mer 3s linear infinite;
+}
+
+.opencode-eye-root .stage .m2 {
+  animation-delay: -1.5s;
+}
+
+/* respond */
+.opencode-eye-root .stage .sp {
+  stroke-dasharray: 80 80;
+  stroke-dashoffset: 80;
+}
+
+.opencode-eye-root .stage[data-state="respond"] .sp1 {
+  animation: opencode-eye-sp1 3.2s linear infinite;
+}
+
+.opencode-eye-root .stage[data-state="respond"] .sp2 {
+  animation: opencode-eye-sp2 3.2s linear infinite;
+}
+
+.opencode-eye-root .stage[data-state="respond"] .sp3 {
+  animation: opencode-eye-sp3 3.2s linear infinite;
+}
+
+/* attention */
+.opencode-eye-root .stage .ask-swing {
+  transform-box: view-box;
+  transform-origin: 100px 2px;
+  animation: opencode-eye-swing 1.6s ease-in-out infinite;
+}
+
+/* sleep */
+.opencode-eye-root .stage .pill {
+  transform-box: view-box;
+  transform-origin: 100px 60px;
+  animation: opencode-eye-breathe 3s ease-in-out infinite;
+}
+
+/* ---------- Small sizes (< 120 px): only the eye stays readable ---------- */
+.opencode-eye-root[data-compact="on"] .stage,
+.opencode-eye-root[data-compact="on"] .eye .bubble,
+.opencode-eye-root[data-compact="on"] .eye .confetti,
+.opencode-eye-root[data-compact="on"] .eye .hourglass,
+.opencode-eye-root[data-compact="on"] .eye .coffee,
+.opencode-eye-root[data-compact="on"] .eye .ticks {
+  display: none;
+}
+
+/* ---------- Reduced motion (the system's, or the plugin's setting) ---------- */
+.opencode-eye-root[data-reduced="on"] .eye .spiral-g,
+.opencode-eye-root[data-reduced="on"] .eye .halo,
+.opencode-eye-root[data-reduced="on"] .eye .stars,
+.opencode-eye-root[data-reduced="on"] .eye .hg,
+.opencode-eye-root[data-reduced="on"] .eye .steam,
+.opencode-eye-root[data-reduced="on"] .eye .bdot,
+.opencode-eye-root[data-reduced="on"] .stage .pz,
+.opencode-eye-root[data-reduced="on"] .stage .g-mer,
+.opencode-eye-root[data-reduced="on"] .stage .ask-swing,
+.opencode-eye-root[data-reduced="on"] .stage .pill,
+.opencode-eye-root[data-reduced="on"] .stage .t-scroll,
+.opencode-eye-root[data-reduced="on"] .eye-badge,
+.opencode-eye-root[data-reduced="on"] .eye-status .dot,
+.opencode-eye-root[data-reduced="on"] .opencode-eye-card {
+  animation: none;
+}
+
+.opencode-eye-root[data-reduced="on"] .eye[data-state="attention"] .halo {
+  opacity: 0.35;
+  transform: scale(1.1);
+}
+
+.opencode-eye-root[data-reduced="on"] .eye[data-state="sleep"] .zz {
+  animation: none;
+  opacity: 0.8;
+}
+
+.opencode-eye-root[data-reduced="on"] .eye[data-state="think"] .bdot {
+  opacity: 0.8;
+}
+
+.opencode-eye-root[data-reduced="on"] .eye .cf {
+  animation: none;
+  opacity: 0;
+}
+
+/* ---------- Keyframes ---------- */
+@keyframes opencode-eye-blinkdot {
+  50% {
+    opacity: 0.2;
+  }
+}
+
+@keyframes opencode-eye-pop {
+  from {
+    transform: translateY(6px) scale(0.7);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes opencode-eye-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes opencode-eye-ping {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.28);
+  }
+}
+
+@keyframes opencode-eye-zfloat {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(16px, -34px) scale(1.25);
+  }
+}
+
+@keyframes opencode-eye-fall {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(160px) rotate(260deg);
+  }
+}
+
+@keyframes opencode-eye-bdot {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes opencode-eye-flip {
+  0%,
+  65% {
+    transform: rotate(0);
+  }
+  85%,
+  100% {
+    transform: rotate(180deg);
+  }
+}
+
+@keyframes opencode-eye-steam {
+  0% {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  40% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes opencode-eye-tscroll {
+  0%,
+  22% {
+    transform: translateY(0);
+  }
+  33%,
+  55% {
+    transform: translateY(-18px);
+  }
+  66%,
+  88% {
+    transform: translateY(-36px);
+  }
+  100% {
+    transform: translateY(-54px);
+  }
+}
+
+@keyframes opencode-eye-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes opencode-eye-mer {
+  0% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(0.02);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes opencode-eye-sp1 {
+  0% {
+    stroke-dashoffset: 80;
+  }
+  25%,
+  92% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 80;
+  }
+}
+
+@keyframes opencode-eye-sp2 {
+  0%,
+  25% {
+    stroke-dashoffset: 80;
+  }
+  50%,
+  92% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 80;
+  }
+}
+
+@keyframes opencode-eye-sp3 {
+  0%,
+  50% {
+    stroke-dashoffset: 80;
+  }
+  75%,
+  92% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 80;
+  }
+}
+
+@keyframes opencode-eye-swing {
+  0%,
+  100% {
+    transform: rotate(-10deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+}
+
+@keyframes opencode-eye-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04, 1.06);
+  }
+}
+
+/* =====================================================================
+   The panel, its details card, the settings and the debug log
+   ===================================================================== */
+
 .opencode-eye {
   display: flex;
   flex-direction: column;
@@ -15,165 +935,92 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  min-width: 0;
   min-height: 200px;
 }
 
-.opencode-eye__figure {
+.opencode-eye__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.opencode-eye-card {
   position: relative;
-  display: block;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: none;
-  color: inherit;
-  cursor: pointer;
+  width: min(100%, 300px);
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg2);
+  color: var(--text);
+  font-size: 12px;
+  animation: opencode-eye-pop 0.3s var(--ease-pop) both;
 }
 
-.opencode-eye__figure:focus-visible {
-  outline: 2px solid var(--border-interactive-base, Highlight);
-  outline-offset: 4px;
+.opencode-eye-card h2 {
+  margin: 0 24px 10px 0;
+  font-size: 13px;
+  font-weight: 600;
 }
 
-.opencode-eye-details {
+.opencode-eye-card__close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+
+.opencode-eye-card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0 0 10px;
+}
+
+.opencode-eye-card dt {
+  color: var(--muted);
+}
+
+.opencode-eye-card dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.opencode-eye-card h3 {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.opencode-eye-card ol {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  font-size: 13px;
-}
-
-.opencode-eye-details h3 {
-  margin: 0 0 6px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  opacity: 0.6;
-}
-
-.opencode-eye-details p {
-  margin: 0 0 4px;
-}
-
-.opencode-eye-details ul,
-.opencode-eye-details ol {
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.opencode-eye-details li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 3px 0;
-}
-
-.opencode-eye-details li > :last-child {
-  margin-left: auto;
-}
-
-.opencode-eye-details__muted {
-  opacity: 0.6;
-  font-variant-numeric: tabular-nums;
-}
-
-.opencode-eye-details__error {
-  overflow-wrap: anywhere;
-}
-
-.opencode-eye-details__history {
-  max-height: 240px;
-  overflow: auto;
-}
-
-/* The running tool's icon, pinned to the eye's lower right edge. */
-.opencode-eye__badge {
-  position: absolute;
-  right: 2%;
-  bottom: 2%;
+.opencode-eye-card li {
   display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  color: var(--icon-strong-base, currentColor);
-  background: var(--surface-raised-stronger-non-alpha, Canvas);
-  box-shadow: 0 0 0 2px var(--background-base, Canvas);
-  animation: opencode-eye-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+  grid-template-columns: auto 1fr;
+  gap: 0 8px;
 }
 
-@keyframes opencode-eye-pop {
-  from {
-    transform: scale(0.4);
-    opacity: 0;
-  }
+.opencode-eye-card li code {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 11px;
 }
 
-.opencode-eye__svg {
-  display: block;
-  overflow: visible;
-}
-
-.opencode-eye__label {
-  margin: 0;
-  font-size: 13px;
-  opacity: 0.75;
-  text-align: center;
-  overflow-wrap: anywhere;
-}
-
-.opencode-eye__spiral {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: opencode-eye-spin 1.4s linear infinite;
-}
-
-.opencode-eye__zzz text {
-  font-size: 9px;
-  font-weight: 600;
-  opacity: 0;
-  animation: opencode-eye-zzz 2.4s ease-out infinite;
-}
-
-.opencode-eye__zzz text:nth-child(2) {
-  animation-delay: 0.8s;
-}
-
-.opencode-eye__zzz text:nth-child(3) {
-  animation-delay: 1.6s;
-}
-
-@keyframes opencode-eye-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes opencode-eye-zzz {
-  0% {
-    opacity: 0;
-    transform: translate(0, 4px);
-  }
-  30% {
-    opacity: 0.8;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(4px, -6px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .opencode-eye__badge {
-    animation: none;
-  }
-
-  .opencode-eye__spiral,
-  .opencode-eye__zzz text {
-    animation: none;
-    opacity: 0.8;
-  }
+.opencode-eye-card__time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .opencode-eye__empty {
@@ -243,13 +1090,14 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  max-width: 560px;
+  max-width: 640px;
 }
 
 .opencode-eye-settings__preview {
   display: grid;
   place-items: center;
   min-height: 200px;
+  padding: 16px 0;
 }
 
 .opencode-eye-settings h3 {
@@ -287,9 +1135,15 @@
   text-align: right;
 }
 
+.opencode-eye-settings__hint {
+  margin: 0 0 8px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
 .opencode-eye-states {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
   gap: 12px;
   margin: 0;
   padding: 0;
@@ -301,27 +1155,24 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 12px 8px;
+  padding: 16px 8px 12px;
   border-radius: 8px;
   background: color-mix(in srgb, currentColor 4%, transparent);
   font-size: 12px;
   text-align: center;
 }
 
-.opencode-eye-states__card .opencode-eye-settings__hint {
-  margin: 0;
-}
-
-.opencode-eye-states__figure {
-  position: relative;
+.opencode-eye-states__card .opencode-eye-root {
   margin-bottom: 4px;
 }
 
-.opencode-eye-states__figure .opencode-eye__badge {
-  width: 22px;
-  height: 22px;
-  right: -4%;
-  bottom: -4%;
+.opencode-eye-states__card code {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.opencode-eye-states__card .opencode-eye-settings__hint {
+  margin: 0;
 }
 
 .opencode-eye-picker {
@@ -336,10 +1187,4 @@
   gap: 4px;
   max-height: 360px;
   overflow: auto;
-}
-
-.opencode-eye-settings__hint {
-  margin: 0 0 8px;
-  font-size: 12px;
-  opacity: 0.6;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { ICON_NAMES } from "../src/gui/icon-names"
-import { isIconName, runningIcon, serverOf, toolIcon } from "../src/gui/icons"
+import { isIconName, serverOf, toolIcon } from "../src/gui/icons"
 
 describe("toolIcon", () => {
   test("maps the tools seen in the capture", () => {
@@ -24,16 +24,9 @@ describe("toolIcon", () => {
   })
 
   test("falls back on the tool's kind, then on a generic icon", () => {
+    expect(toolIcon("websearch")).toBe("outline-globe")
     expect(toolIcon("frobnicate")).toBe("extensions")
     expect(toolIcon("")).toBe("extensions")
-  })
-})
-
-describe("runningIcon", () => {
-  test("a wrapper shows the inner tool it runs", () => {
-    expect(runningIcon({ id: "c1", name: "execute", kind: "generic", since: 0 })).toBe("code")
-    expect(runningIcon({ id: "c1", name: "execute", kind: "generic", since: 0, inner: "tracker.get_issue" })).toBe("mcp")
-    expect(runningIcon({ id: "c1", name: "execute", kind: "generic", since: 0, inner: "search" })).toBe("magnifying-glass")
   })
 })
 
@@ -63,11 +56,6 @@ describe("MCP icons the user chose", () => {
     expect(toolIcon("broken.call", custom)).toBe("mcp")
   })
 
-  test("a wrapper's inner MCP tool takes its server's icon", () => {
-    expect(
-      runningIcon({ id: "c1", name: "execute", kind: "generic", since: 0, inner: "tracker.get_issue" }, custom),
-    ).toBe("flask")
-  })
 })
 
 describe("serverOf", () => {

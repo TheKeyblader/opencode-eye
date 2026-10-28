@@ -1,84 +1,106 @@
-import { createMemo, createSignal, For, Show, type Accessor } from "solid-js"
+import { createMemo, createSignal, For, onCleanup, Show } from "solid-js"
 import { createKeyed, usePanel, usePlugin, type MountedSession } from "@opencode/plugin/gui"
+import { DetailsCard } from "./card"
 import type { EventLog } from "./debug"
 import type { definition } from "./definition"
-import { openDetails } from "./details"
+import type { Engine } from "./engine"
 import { Eye } from "./eye"
-import { runningIcon } from "./icons"
-import { stateLabel, toolName } from "./labels"
-import type { Look } from "./motion"
-import { resolvePalette } from "./palette"
-import { currentTool, initial, type EyeState, type Sessions } from "./state"
+import { toolIcon } from "./icons"
+import { announced, statusDot, viewLabel } from "./labels"
+import { eyeSize, resolveColors } from "./palette"
+import { createReducedMotion, createWidth } from "./reduced"
+import type { Eyes } from "./window"
 
-const IDLE = initial(0)
+// How often time passes for the eye on screen: the 400 ms per state, the 250 ms before thinking, the reactions.
+const TICK_MS = 100
+// The click blinks twice, then the card opens.
+const OPEN_MS = 380
 
-export function EyePanel(props: {
-  readonly session: MountedSession
-  readonly eyes: Accessor<Sessions>
-  /** Fills in the eye of a session it has seen no event of yet, from what the server holds. */
-  readonly ensure: (sessionID: string) => void
-  readonly log: EventLog
-}) {
+export function EyePanel(props: { readonly session: MountedSession; readonly eyes: Eyes; readonly log: EventLog }) {
   const ctx = usePlugin<typeof definition>()
   const panel = usePanel()
-  const settings = () => ctx.stores.settings.value
+  const settings = () => ctx.stores.eye.value
   // Read through the getter each time: the panel stays mounted when the user switches sessions.
-  const state = (): EyeState => props.eyes()[props.session.id] ?? IDLE
+  const view = () => props.eyes.view(props.session.id)
+  const label = () => viewLabel(ctx.t, view())
+  const reduced = createReducedMotion(() => settings().reduced)
+  const [open, setOpen] = createSignal(false)
+  let stage: HTMLDivElement | undefined
+  let opening: ReturnType<typeof setTimeout> | undefined
+  const room = createWidth(() => stage)
 
-  // Each session the panel shows, including after a switch.
+  // Each session the panel shows, including after a switch; the card belongs to the session it opened on.
   createKeyed(
     () => props.session.id,
-    (id) => props.ensure(id),
-  )
-  const look = createMemo(
-    (): Look => {
-      const current = state()
-
-      return {
-        mood: current.mood,
-        kind: currentTool(current)?.kind,
-        stuck: current.mood === "error" && current.error?.until === undefined,
-      }
+    (id) => {
+      props.eyes.ensure(id)
+      setOpen(false)
     },
-    undefined,
-    { equals: (a, b) => a.mood === b.mood && a.kind === b.kind && a.stuck === b.stuck },
   )
-  const label = () => stateLabel(ctx.t, state())
-  const tool = () => (state().mood === "tool" ? currentTool(state()) : undefined)
+  // Time passes only while the eye is on screen.
+  createKeyed(
+    () => panel.visible() && props.session.id,
+    (id) => {
+      const timer = setInterval(() => props.eyes.tick(id), TICK_MS)
+
+      onCleanup(() => clearInterval(timer))
+    },
+  )
+  onCleanup(() => clearTimeout(opening))
+
+  const close = () => {
+    setOpen(false)
+    stage?.querySelector<HTMLButtonElement>("button.eye-btn")?.focus()
+  }
+  const toggle = (engine: Engine) => {
+    clearTimeout(opening)
+    if (open()) return close()
+    engine.blinkTwice()
+    opening = setTimeout(() => setOpen(true), reduced() ? 0 : OPEN_MS)
+  }
 
   return (
-    <div class="opencode-eye" data-session={props.session.id} data-mood={look().mood}>
-      <div class="opencode-eye__stage">
-        <button
-          type="button"
-          class="opencode-eye__figure"
-          aria-label={ctx.t("details.open", { state: label() })}
-          onClick={() => {
-            // The dialog stays on the session it was opened for.
-            const id = props.session.id
-
-            openDetails(ctx, () => props.eyes()[id] ?? IDLE, () => ctx.stores.mcp.value.icons)
-          }}
+    <div class="opencode-eye" data-session={props.session.id}>
+      <div ref={stage} class="opencode-eye__stage">
+        <Eye
+          state={view().state}
+          tool={!!view().tool}
+          mods={view().mods}
+          size={eyeSize(settings().size, room())}
+          theme={ctx.appearance.mode()}
+          brow={settings().brow}
+          stroke={settings().stroke}
+          colors={resolveColors(settings())}
+          reduced={reduced()}
+          visible={panel.visible}
+          label={ctx.t("eye.label")}
+          onClick={toggle}
+          badge={
+            <Show when={view().tool}>
+              {(tool) => (
+                <div class="eye-badge">
+                  <ctx.ui.Icon name={toolIcon(tool().name, ctx.stores.mcp.value.icons)} size="small" />
+                  <span>{tool().name || ctx.t(`state.${view().state}`)}</span>
+                  <Show when={view().count > 1}>
+                    <span class="count">×{view().count}</span>
+                  </Show>
+                </div>
+              )}
+            </Show>
+          }
         >
-          <Eye
-            look={look()}
-            size={settings().size}
-            style={settings().style}
-            palette={resolvePalette(ctx.appearance.mode(), settings())}
-            label={label()}
-            visible={panel.visible}
-          />
-          <Show when={tool()}>
-            {(running) => (
-              <span class="opencode-eye__badge" title={toolName(running())}>
-                <ctx.ui.Icon name={runningIcon(running(), ctx.stores.mcp.value.icons)} size="normal" />
-              </span>
-            )}
+          <div class="eye-status">
+            <span class={`dot ${statusDot(view().state)}`} />
+            <span>{label()}</span>
+          </div>
+          {/* A screen reader hears attention, the errors and the end of a run, not every tool. */}
+          <div class="opencode-eye__sr" aria-live="polite">
+            {announced(view().state) ? label() : ""}
+          </div>
+          <Show when={open()}>
+            <DetailsCard view={view()} onClose={close} />
           </Show>
-        </button>
-        <p class="opencode-eye__label" aria-live="polite">
-          {label()}
-        </p>
+        </Eye>
       </div>
       <DebugLog session={props.session} log={props.log} />
     </div>

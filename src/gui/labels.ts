@@ -1,31 +1,42 @@
-import { currentTool, kindOf, type EyeState, type Mood, type RunningTool, type Transition } from "./state"
+import { isToolState, type EyeState, type EyeView, type Transition } from "./machine"
 
 type Translate = (key: string, params?: Record<string, string | number | boolean>) => string
 
-/** A tool's name as the user reads it: `execute → tracker.get_issue` for a wrapper. */
-export function toolName(tool: RunningTool): string {
-  return tool.inner ? `${tool.name} → ${tool.inner}` : tool.name
+/** A state, with its tool for the tool states: `Reading · grep`. */
+export function stateLabel(t: Translate, state: EyeState, tool?: string): string {
+  const label = t(`state.${state}`)
+
+  return isToolState(state) && tool ? `${label} · ${tool}` : label
 }
 
-export function moodLabel(t: Translate, mood: Mood, tool?: RunningTool): string {
-  if (mood !== "tool") return t(`mood.${mood}`)
-  const verb = t(`tool.${tool?.kind ?? "generic"}`)
-  const name = tool ? toolName(tool) : ""
+/** What the eye shows, in one line, with its modifiers: `Reading · grep · taking a while`, `Bored`. */
+export function viewLabel(t: Translate, view: EyeView): string {
+  if (view.state === "idle" && view.mods.bored) return t("state.bored")
+  const label = stateLabel(t, view.state, view.tool?.name)
 
-  return name ? `${verb} · ${name}` : verb
+  return view.mods.impatient && view.tool ? `${label} · ${t("state.impatient")}` : label
 }
 
-/** What the eye is doing, in one line. */
-export function stateLabel(t: Translate, state: EyeState): string {
-  return moodLabel(t, state.mood, currentTool(state))
+export const transitionLabel = (t: Translate, item: Transition) => stateLabel(t, item.state, item.tool)
+
+/** The states a screen reader hears: attention, the errors and the end of a run. Not every tool. */
+export function announced(state: EyeState): boolean {
+  return (
+    state === "attention" ||
+    state === "error-flash" ||
+    state === "error" ||
+    state === "error-spiral" ||
+    state === "happy" ||
+    state === "vexed"
+  )
 }
 
-/** A past transition, in one line. */
-export function transitionLabel(t: Translate, item: Transition): string {
-  if (item.mood !== "tool") return t(`mood.${item.mood}`)
-  const name = item.tool ?? ""
-
-  return moodLabel(t, "tool", { id: "", name, kind: kindOf(name), since: item.at })
+/** The status dot: lit while at work, red on an error, blinking while waiting for the user. */
+export function statusDot(state: EyeState): "" | "on" | "err" | "att" {
+  if (state === "attention") return "att"
+  if (state === "error-flash" || state === "error" || state === "error-spiral") return "err"
+  if (state === "idle" || state === "sleep" || state === "happy" || state === "vexed" || state === "surprised") return ""
+  return "on"
 }
 
 /** A short duration: `< 1 s`, `42 s`, `3 min 05 s`, `1 h 02 min`. */

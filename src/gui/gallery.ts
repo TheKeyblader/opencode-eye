@@ -1,23 +1,35 @@
-import type { Look } from "./motion"
+import { STATES, type EyeState, type Mods } from "./machine"
 
 /** One state of the eye, as the settings gallery and the preview page show it. */
 export interface GalleryItem {
-  /** Its copy is `states.<key>` (title) and `states.<key>.text` (what it means). */
+  /** Its copy is `states.<key>`. */
   readonly key: string
-  readonly look: Look
-  /** A tool name whose icon the badge shows, for the tool states. */
+  readonly state: EyeState
+  /** A tool name for the badge, for the tool states. */
   readonly tool?: string
+  /** A modifier the item shows, on top of its state. */
+  readonly mod?: keyof Mods
 }
 
+// A tool of each kind, for the badge.
+const TOOLS: Partial<Record<EyeState, string>> = {
+  read: "grep",
+  write: "patch",
+  shell: "shell",
+  generic: "tracker.get_issue",
+  delegate: "subagent",
+  web: "webfetch",
+  plan: "todowrite",
+}
+
+export const NO_MODS: Mods = { impatient: false, bored: false, tired: false }
+
+/** The 18 states, then the 3 modifiers. */
 export const GALLERY: readonly GalleryItem[] = [
-  { key: "idle", look: { mood: "idle" } },
-  { key: "thinking", look: { mood: "thinking" } },
-  { key: "read", look: { mood: "tool", kind: "read" }, tool: "read" },
-  { key: "edit", look: { mood: "tool", kind: "edit" }, tool: "patch" },
-  { key: "shell", look: { mood: "tool", kind: "shell" }, tool: "shell" },
-  { key: "generic", look: { mood: "tool", kind: "generic" }, tool: "server.tool" },
-  { key: "attention", look: { mood: "attention" } },
-  { key: "flash", look: { mood: "error" } },
-  { key: "stuck", look: { mood: "error", stuck: true } },
-  { key: "sleeping", look: { mood: "sleeping" } },
+  ...STATES.map((state) => ({ key: state, state, tool: TOOLS[state] })),
+  { key: "impatient", state: "shell", tool: "shell", mod: "impatient" },
+  { key: "bored", state: "idle", mod: "bored" },
+  { key: "tired", state: "think", mod: "tired" },
 ]
+
+export const modsOf = (item: GalleryItem): Mods => (item.mod ? { ...NO_MODS, [item.mod]: true } : NO_MODS)

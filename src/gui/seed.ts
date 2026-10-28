@@ -3,6 +3,8 @@
  * opens, or a rebuild reloads the GUI. Pure: it reads plain values, so the window passes in what `Data` holds.
  */
 
+import { contextTokens } from "./adapt"
+
 /** The structural parts of the server's data the seed reads. `Data`'s values fit. */
 export interface SeedSource {
   readonly status: "idle" | "running"
@@ -17,6 +19,8 @@ export interface Seed {
   readonly compacting: boolean
   readonly tools: readonly { readonly id: string; readonly name: string }[]
   readonly asks: readonly { readonly id: string; readonly kind: "permission" | "question"; readonly label?: string }[]
+  /** What the latest answer put in the context, for the context usage. */
+  readonly usage?: { readonly messageID: string; readonly tokens: number }
 }
 
 // A tool part streams its input, then runs; `completed` and `error` are done.
@@ -26,6 +30,14 @@ export function seed(sessionID: string, source: SeedSource): Seed {
   const running = source.status === "running"
   const tools: { id: string; name: string }[] = []
   let compacting = false
+  let usage: Seed["usage"]
+
+  for (const message of source.messages) {
+    const item = record(message)
+    const tokens = item.type === "assistant" ? contextTokens(item.tokens) : undefined
+
+    if (tokens && typeof item.id === "string") usage = { messageID: item.id, tokens }
+  }
 
   // A part left "running" by a run that is over is stale: trust the parts only while the session runs.
   if (running) {
@@ -53,6 +65,7 @@ export function seed(sessionID: string, source: SeedSource): Seed {
       ...source.permissions.map((item) => ({ id: item.id, kind: "permission" as const, label: item.action })),
       ...source.forms.map((item) => ({ id: item.id, kind: "question" as const, label: item.title })),
     ],
+    usage,
   }
 }
 

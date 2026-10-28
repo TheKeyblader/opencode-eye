@@ -1,68 +1,36 @@
-export type EyeStyle = "realistic" | "cartoon"
-
-export const STYLES: readonly EyeStyle[] = ["realistic", "cartoon"]
-
-/** CSS colors: `#rrggbb`, or expressions over the app's theme variables. Apply them as styles, not attributes. */
-export interface Palette {
-  readonly sclera: string
-  readonly iris: string
-  readonly pupil: string
-  readonly outline: string
-  readonly lid: string
-}
-
-/** The colors a user can set. An empty string follows the theme. */
-export interface ColorChoice {
-  readonly iris: string
-  readonly pupil: string
-  readonly outline: string
-}
-
-export const COLORS: readonly (keyof ColorChoice)[] = ["iris", "pupil", "outline"]
-
-/** Colors for when the app's theme variables are missing, such as outside the app. */
-export const FALLBACK: Readonly<Record<"light" | "dark", Palette>> = {
-  light: { sclera: "#ffffff", iris: "#3d78bb", pupil: "#111114", outline: "#2a2a2e", lid: "#dcd6d0" },
-  dark: { sclera: "#ecebe6", iris: "#5f9fe6", pupil: "#0d0d0f", outline: "#d4d4d8", lid: "#3b3a38" },
-}
-
-const token = (name: string, fallback: string) => `var(--${name}, ${fallback})`
-
 /**
- * The eye in the colors of the app's theme (Nord, OpenCode, …), read from the CSS variables the app derives from the
- * theme's palette: its `primary` color (`--surface-brand-base`) for the iris, its ink (`--text-strong`,
- * `--icon-base`) for the outline, its background for the lid. These variables are the app's, not the SDK's: each
- * falls back on `FALLBACK`.
- *
- * Not `--v2-*`: those alias a fixed scale (`--v2-blue-600` is always #3b5cf6) that no theme changes. Not
- * `--text-base`: the app's Tailwind theme also defines it as a font size.
+ * The eye's appearance settings. Its colors are CSS tokens (see eye.css): the app's theme drives them, and the user may
+ * set the accent and the error color.
  */
-export function themePalette(mode: "light" | "dark"): Palette {
-  const fallback = FALLBACK[mode]
-  const dark = mode === "dark"
-  // The ink is dark on a light theme and light on a dark one; the pupil stays dark and the white stays light.
-  const ink = token("text-strong", dark ? fallback.sclera : fallback.outline)
-  const background = token("background-base", dark ? "#1c1c1f" : "#f6f6f4")
 
-  return {
-    sclera: dark ? ink : token("surface-raised-stronger-non-alpha", fallback.sclera),
-    iris: token("surface-brand-base", fallback.iris),
-    pupil: dark ? `color-mix(in srgb, ${background} 85%, black)` : ink,
-    outline: dark ? token("icon-base", fallback.outline) : ink,
-    lid: `color-mix(in srgb, ${background} 72%, ${token("icon-base", dark ? "#a0a0a0" : "#6f6f6f")})`,
-  }
+export type Stroke = "thin" | "normal" | "bold"
+
+export const STROKES = ["thin", "normal", "bold"] as const satisfies readonly Stroke[]
+
+/** The line width of each stroke, in viewBox units: the mock-up's is 3.5. */
+const STROKE_WIDTH: Readonly<Record<Stroke, number>> = { thin: 2.5, normal: 3.5, bold: 4.5 }
+
+export const strokeWidth = (stroke: Stroke) => STROKE_WIDTH[stroke]
+
+/** The colors a user can set: `#rrggbb`, or empty to follow the theme. */
+export interface Colors {
+  /** The outline, the pupil and the props. The theme's accent (`--surface-brand-base`) by default. */
+  readonly contour: string
+  readonly error: string
 }
+
+export const COLORS: readonly (keyof Colors)[] = ["contour", "error"]
+
+/** The token each color sets, to read what the theme computes it to. */
+export const TOKENS: Readonly<Record<keyof Colors, string>> = { contour: "var(--contour)", error: "var(--err)" }
 
 const HEX = /^#[0-9a-f]{6}$/i
 
 export const isHex = (value: string) => HEX.test(value)
 
-/** The theme's palette, with each color the user set in its place. A value that is not `#rrggbb` is ignored. */
-export function resolvePalette(mode: "light" | "dark", choice: ColorChoice): Palette {
-  const theme = themePalette(mode)
-  const pick = (key: keyof ColorChoice) => (isHex(choice[key]) ? choice[key] : theme[key])
-
-  return { ...theme, iris: pick("iris"), pupil: pick("pupil"), outline: pick("outline") }
+/** The user's colors, with anything that is not `#rrggbb` left to the theme. */
+export function resolveColors(choice: Colors): Colors {
+  return { contour: isHex(choice.contour) ? choice.contour : "", error: isHex(choice.error) ? choice.error : "" }
 }
 
 /** `rgb(…)`/`rgba(…)` as computed by the browser, to `#rrggbb` for a color input. */
@@ -89,9 +57,21 @@ export function computedHex(color: string, element: Element): string | undefined
   return rgbToHex(computed)
 }
 
-export const SIZE = { min: 80, max: 320, step: 8, initial: 160 } as const
+/** The eye's width, in px. `0` is automatic: `AUTO_RATIO` of the panel's width. */
+export const SIZE = { min: 80, max: 300, step: 4, auto: 0 } as const
+
+export const AUTO_RATIO = 0.6
+
+/** Under this width, the scene and the props hide: only the eye stays readable. */
+export const COMPACT = 120
 
 export function clampSize(size: number): number {
-  if (!Number.isFinite(size)) return SIZE.initial
+  if (!Number.isFinite(size)) return SIZE.min
   return Math.min(SIZE.max, Math.max(SIZE.min, Math.round(size)))
+}
+
+/** The eye's width for a setting and the width of the room it has. */
+export function eyeSize(setting: number, room: number): number {
+  if (setting !== SIZE.auto) return clampSize(setting)
+  return clampSize(room > 0 ? room * AUTO_RATIO : 160)
 }

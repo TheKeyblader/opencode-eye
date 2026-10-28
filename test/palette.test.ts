@@ -1,32 +1,40 @@
 import { describe, expect, test } from "bun:test"
-import { clampSize, FALLBACK, resolvePalette, rgbToHex, SIZE, themePalette } from "../src/gui/palette"
+import { readFileSync } from "node:fs"
+import { clampSize, COMPACT, eyeSize, resolveColors, rgbToHex, SIZE, strokeWidth } from "../src/gui/palette"
 
-const NONE = { iris: "", pupil: "", outline: "" }
+const css = readFileSync(new URL("../src/gui/eye.css", import.meta.url), "utf8")
 
-describe("themePalette", () => {
-  test("reads the app's theme variables, with a fallback for each", () => {
-    for (const mode of ["light", "dark"] as const) {
-      const palette = themePalette(mode)
-
-      expect(palette.iris).toBe(`var(--surface-brand-base, ${FALLBACK[mode].iris})`)
-      for (const color of Object.values(palette)) expect(color).toContain("var(--")
-    }
+describe("the CSS tokens", () => {
+  test("come from the app's theme, with the mock-up's values as fallbacks", () => {
+    expect(css).toContain("--bg: var(--background-base, #16181d)")
+    expect(css).toContain("--muted: var(--icon-base, #8d929d)")
+    expect(css).toContain("--contour: var(--surface-brand-base, #8fb3ff)")
+    expect(css).toContain("--contour: var(--surface-brand-base, #2f55c8)")
   })
 
-  test("never reads --text-base, which the app also uses as a font size, nor the unthemed --v2-* scale", () => {
-    for (const mode of ["light", "dark"] as const) {
-      for (const color of Object.values(themePalette(mode))) {
-        expect(color).not.toContain("--text-base")
-        expect(color).not.toContain("--v2-")
-      }
-    }
+  test("never read --text-base, which the app also uses as a font size, nor the unthemed --v2-* scale", () => {
+    expect(css).not.toContain("--text-base")
+    expect(css).not.toContain("--v2-")
   })
 
-  test("keeps the pupil dark and the white light in both modes", () => {
-    expect(themePalette("light").pupil).toContain("--text-strong")
-    expect(themePalette("dark").pupil).toContain("black")
-    expect(themePalette("dark").sclera).toContain("--text-strong")
-    expect(themePalette("light").sclera).toContain("#ffffff")
+  test("every rule sits under the eye's root, so the app's classes stay untouched", () => {
+    const selectors = css
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/@keyframes[^{]+\{(?:[^{}]*\{[^}]*\})*\s*\}/g, "")
+      .match(/[^{}]+(?=\{)/g)!
+      .flatMap((group) => group.split(","))
+      .map((selector) => selector.trim())
+
+    for (const selector of selectors) expect(selector).toMatch(/^\.opencode-eye/)
+  })
+})
+
+describe("resolveColors", () => {
+  test("keeps #rrggbb and leaves anything else to the theme", () => {
+    expect(resolveColors({ contour: "#2e8b57", error: "red; background: url(x)" })).toEqual({
+      contour: "#2e8b57",
+      error: "",
+    })
   })
 })
 
@@ -39,34 +47,21 @@ describe("rgbToHex", () => {
   })
 })
 
-describe("resolvePalette", () => {
-  test("follows the theme while no color is set", () => {
-    expect(resolvePalette("light", NONE)).toEqual(themePalette("light"))
-    expect(resolvePalette("dark", NONE)).toEqual(themePalette("dark"))
-  })
-
-  test("a color the user set wins, in both themes", () => {
-    for (const mode of ["light", "dark"] as const) {
-      const palette = resolvePalette(mode, { ...NONE, iris: "#2e8b57" })
-
-      expect(palette.iris).toBe("#2e8b57")
-      expect(palette.pupil).toBe(themePalette(mode).pupil)
-      expect(palette.sclera).toBe(themePalette(mode).sclera)
-    }
-  })
-
-  test("ignores a value that is not #rrggbb", () => {
-    expect(resolvePalette("light", { ...NONE, outline: "red; background: url(x)" }).outline).toBe(
-      themePalette("light").outline,
-    )
-  })
-})
-
-describe("clampSize", () => {
-  test("keeps the size in range", () => {
+describe("size", () => {
+  test("stays within 80 to 300 px", () => {
     expect(clampSize(10)).toBe(SIZE.min)
-    expect(clampSize(10_000)).toBe(SIZE.max)
-    expect(clampSize(150.6)).toBe(151)
-    expect(clampSize(Number.NaN)).toBe(SIZE.initial)
+    expect(clampSize(1000)).toBe(SIZE.max)
+    expect(clampSize(Number.NaN)).toBe(SIZE.min)
+  })
+
+  test("automatic: 60 % of the panel", () => {
+    expect(eyeSize(SIZE.auto, 300)).toBe(180)
+    expect(eyeSize(SIZE.auto, 100)).toBe(SIZE.min)
+    expect(eyeSize(200, 300)).toBe(200)
+  })
+
+  test("the scene hides under 120 px, and the mock-up's stroke is the normal one", () => {
+    expect(COMPACT).toBe(120)
+    expect(strokeWidth("normal")).toBe(3.5)
   })
 })

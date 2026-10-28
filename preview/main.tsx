@@ -1,47 +1,55 @@
 import { createSignal, For, Show } from "solid-js"
 import { render } from "solid-js/web"
 import { Eye } from "../src/gui/eye"
-import { GALLERY } from "../src/gui/gallery"
-import { simulate, type Look } from "../src/gui/motion"
-import { themePalette, type EyeStyle } from "../src/gui/palette"
+import { GALLERY, modsOf } from "../src/gui/gallery"
+import type { Stroke } from "../src/gui/palette"
 import { setVisible, usePanel } from "./plugin-gui"
 import css from "../src/gui/eye.css?inline"
 
-// The app's theme variables, approximated from the Nord palette (the app derives its own scales).
-const NORD: Record<"light" | "dark", Record<string, string>> = {
-  light: {
-    "--surface-brand-base": "#5e81ac",
-    "--text-strong": "#2e3440",
-    "--icon-base": "#4c566a",
-    "--background-base": "#eceff4",
-    "--surface-raised-stronger-non-alpha": "#ffffff",
-  },
-  dark: {
-    "--surface-brand-base": "#88c0d0",
-    "--text-strong": "#e5e9f0",
-    "--icon-base": "#a3abb9",
-    "--background-base": "#2e3440",
-    "--surface-raised-stronger-non-alpha": "#3b4252",
-  },
+// The app's theme variables for Tokyo Night, as the app computed them.
+const TOKYO: Record<string, string> = {
+  "--surface-brand-base": "#3d73f7",
+  "--text-strong": "#f9faff",
+  "--icon-base": "#7b809f",
+  "--background-base": "#0d0e17",
+  "--surface-raised-stronger-non-alpha": "#13141e",
 }
-
-// The settings gallery's states, by key: ?look=<key>.
-const LOOKS: Record<string, Look> = Object.fromEntries(GALLERY.map((item) => [item.key, item.look]))
 
 function App() {
   const params = new URLSearchParams(location.search)
-  const [name, setName] = createSignal(params.get("look") ?? "idle")
-  const [mode, setMode] = createSignal<"light" | "dark">(params.get("mode") === "dark" ? "dark" : "light")
-  const [size, setSize] = createSignal(Number(params.get("size") ?? 160))
-  const [style, setStyle] = createSignal<EyeStyle>(params.get("style") === "cartoon" ? "cartoon" : "realistic")
+  const [key, setKey] = createSignal(params.get("state") ?? "idle")
+  const [mode, setMode] = createSignal<"light" | "dark">(params.get("mode") === "light" ? "light" : "dark")
+  const [size, setSize] = createSignal(Number(params.get("size") ?? 180))
+  const stroke = (params.get("stroke") ?? "normal") as Stroke
+  const reduced = params.has("reduced")
   const { visible } = usePanel()
-  // ?theme=nord sets the theme variables, as the app does.
-  const nord = params.get("theme") === "nord"
-  const vars = () => (nord ? NORD[mode()] : {})
-  // ?still=<seconds> draws the pose reached after that long, for screenshots.
-  const still = params.has("still") ? Number(params.get("still") || 2) : undefined
-  let seed = 7
-  const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646
+  // ?theme=tokyo sets the theme variables, as the app does; without it, the mock-up's fallbacks show.
+  const tokyo = params.get("theme") === "tokyo"
+  // ?still=<ms> draws the picture reached that far into each state, for screenshots.
+  const still = params.has("still") ? Number(params.get("still") || 1500) : undefined
+  const item = () => GALLERY.find((entry) => entry.key === key()) ?? GALLERY[0]!
+  const eye = (entry: (typeof GALLERY)[number]) => (
+    <Eye
+      state={entry.state}
+      tool={!!entry.tool}
+      mods={modsOf(entry)}
+      size={size()}
+      theme={mode()}
+      brow={!params.has("nobrow")}
+      stroke={stroke}
+      colors={{ contour: "", error: "" }}
+      reduced={reduced}
+      visible={visible}
+      still={still}
+      badge={
+        <Show when={entry.tool}>
+          <div class="eye-badge">
+            <span>{entry.tool}</span>
+          </div>
+        </Show>
+      }
+    />
+  )
 
   return (
     <main
@@ -50,61 +58,45 @@ function App() {
         "min-height": "100vh",
         margin: "0",
         padding: "16px",
-        background: nord ? "var(--background-base)" : mode() === "dark" ? "#1c1c1f" : "#f6f6f4",
-        color: nord ? "var(--text-strong)" : mode() === "dark" ? "#e6e6e6" : "#1c1c1f",
-        ...vars(),
+        background: tokyo ? "var(--background-base)" : mode() === "dark" ? "#16181d" : "#fbfbfa",
+        color: mode() === "dark" ? "#d5d8de" : "#26282d",
+        ...(tokyo ? TOKYO : {}),
       }}
     >
       <style>{css}</style>
       <nav style={{ display: "flex", "flex-wrap": "wrap", gap: "6px", "margin-bottom": "16px" }}>
-        <For each={Object.keys(LOOKS)}>
-          {(key) => (
-            <button aria-pressed={name() === key} onClick={() => setName(key)}>
-              {key}
+        <For each={GALLERY}>
+          {(entry) => (
+            <button aria-pressed={key() === entry.key} onClick={() => setKey(entry.key)}>
+              {entry.key}
             </button>
           )}
         </For>
         <button onClick={() => setMode(mode() === "dark" ? "light" : "dark")}>{mode()}</button>
-        <button onClick={() => setStyle(style() === "cartoon" ? "realistic" : "cartoon")}>{style()}</button>
         <label>
-          size <input type="range" min="60" max="320" value={size()} onInput={(e) => setSize(+e.currentTarget.value)} />
+          size <input type="range" min="80" max="300" value={size()} onInput={(e) => setSize(+e.currentTarget.value)} />
         </label>
         <label>
           <input type="checkbox" checked onChange={(e) => setVisible(e.currentTarget.checked)} /> visible
         </label>
       </nav>
-      <Show when={params.has("grid")}>
-        <div style={{ display: "grid", "grid-template-columns": "repeat(5, 1fr)", gap: "8px" }}>
-          <For each={Object.entries(LOOKS)}>
-            {([key, look]) => (
-              <figure style={{ margin: 0, "text-align": "center" }}>
-                <Eye
-                  look={look}
-                  size={size()}
-                  style={style()}
-                  visible={visible}
-                  palette={themePalette(mode())}
-                  label={key}
-                  still={simulate(look, still ?? 2, random)}
-                />
-                <figcaption style={{ "font-size": "12px" }}>{key}</figcaption>
+      <Show
+        when={params.has("grid")}
+        fallback={
+          <div style={{ display: "grid", "place-items": "center", "padding-top": "40px" }}>{eye(item())}</div>
+        }
+      >
+        <div style={{ display: "grid", "grid-template-columns": "repeat(7, 1fr)", gap: "28px 8px" }}>
+          <For each={GALLERY}>
+            {(entry) => (
+              <figure style={{ margin: 0, display: "grid", "justify-items": "center", gap: "6px" }}>
+                {eye(entry)}
+                <figcaption style={{ "font-size": "12px" }}>{entry.key}</figcaption>
               </figure>
             )}
           </For>
         </div>
       </Show>
-      <div class="opencode-eye__stage" style={{ display: params.has("grid") ? "none" : undefined }}>
-        <Eye
-          look={LOOKS[name()]!}
-          size={size()}
-          style={style()}
-          visible={visible}
-          palette={themePalette(mode())}
-          label={name()}
-          still={still === undefined ? undefined : simulate(LOOKS[name()]!, still, random)}
-        />
-        <p class="opencode-eye__label">{name()}</p>
-      </div>
     </main>
   )
 }

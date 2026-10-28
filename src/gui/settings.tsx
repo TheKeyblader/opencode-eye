@@ -2,31 +2,35 @@ import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-j
 import { createKeyed, usePlugin } from "@opencode/plugin/gui"
 import type { definition } from "./definition"
 import { Eye } from "./eye"
-import { GALLERY } from "./gallery"
+import { GALLERY, modsOf, NO_MODS, type GalleryItem } from "./gallery"
 import { pickIcon } from "./icon-picker"
 import { isIconName, toolIcon } from "./icons"
-import { clampSize, COLORS, computedHex, FALLBACK, resolvePalette, SIZE, STYLES, themePalette } from "./palette"
+import { stateLabel } from "./labels"
+import { clampSize, COLORS, computedHex, eyeSize, resolveColors, SIZE, STROKES, TOKENS } from "./palette"
+import { createReducedMotion } from "./reduced"
 
 /** The search entries of the settings page; each row carries its id so search can reveal it. */
-export const ENTRIES = ["size", "style", "colors", "states", "mcp", "debug"] as const
+export const ENTRIES = ["size", "look", "colors", "motion", "states", "mcp", "debug"] as const
+
+// The preview at the automatic size, as in a panel of this width.
+const PREVIEW_ROOM = 280
 
 export function EyeSettings(props: { readonly target?: string }) {
   const ctx = usePlugin<typeof definition>()
   const ui = ctx.ui
-  const settings = () => ctx.stores.settings.value
-  const theme = () => themePalette(ctx.appearance.mode())
-  const palette = () => resolvePalette(ctx.appearance.mode(), settings())
+  const settings = () => ctx.stores.eye.value
+  const update = ctx.stores.eye.update
+  const reduced = createReducedMotion(() => settings().reduced)
   const [root, setRoot] = createSignal<HTMLDivElement>()
-  // A color input takes #rrggbb: show the user's color, else what the theme's computes to here.
+  // A color input takes #rrggbb: show the user's color, else what the theme's computes to under the preview.
   const shown = (key: (typeof COLORS)[number]) => {
-    const element = root()
+    // Computed again when the theme changes.
+    void ctx.appearance.mode()
+    const eye = root()?.querySelector(".opencode-eye-root")
 
-    return (
-      settings()[key] ||
-      (element && computedHex(theme()[key], element)) ||
-      FALLBACK[ctx.appearance.mode()][key]
-    )
+    return settings()[key] || (eye && computedHex(TOKENS[key], eye)) || "#888888"
   }
+  const auto = () => settings().size === SIZE.auto
 
   // Search reveals an entry: bring its row into view.
   createKeyed(
@@ -39,52 +43,77 @@ export function EyeSettings(props: { readonly target?: string }) {
     <div ref={setRoot} class="opencode-eye-settings">
       <div class="opencode-eye-settings__preview">
         <Eye
-          look={{ mood: "idle" }}
-          size={settings().size}
-          style={settings().style}
-          palette={palette()}
-          label={ctx.t("settings.preview")}
+          state="idle"
+          tool={false}
+          mods={NO_MODS}
+          size={eyeSize(settings().size, PREVIEW_ROOM)}
+          theme={ctx.appearance.mode()}
+          brow={settings().brow}
+          stroke={settings().stroke}
+          colors={resolveColors(settings())}
+          reduced={reduced()}
           visible={() => true}
         />
       </div>
 
       <section data-entry="size">
         <h3>{ctx.t("settings.size")}</h3>
-        <label class="opencode-eye-settings__row">
-          <input
-            type="range"
-            min={SIZE.min}
-            max={SIZE.max}
-            step={SIZE.step}
-            value={settings().size}
-            aria-label={ctx.t("settings.size")}
-            onInput={(event) => {
-              const size = clampSize(event.currentTarget.valueAsNumber)
+        <ui.Switch
+          label={ctx.t("settings.size.auto")}
+          checked={auto()}
+          onChange={(checked) =>
+            update((draft) => {
+              draft.size = checked ? SIZE.auto : eyeSize(SIZE.auto, PREVIEW_ROOM)
+            })
+          }
+        />
+        <Show when={!auto()}>
+          <label class="opencode-eye-settings__row">
+            <input
+              type="range"
+              min={SIZE.min}
+              max={SIZE.max}
+              step={SIZE.step}
+              value={settings().size}
+              aria-label={ctx.t("settings.size")}
+              onInput={(event) => {
+                const size = clampSize(event.currentTarget.valueAsNumber)
 
-              ctx.stores.settings.update((draft) => {
-                draft.size = size
-              })
-            }}
-          />
-          <span class="opencode-eye-settings__value">{settings().size} px</span>
-        </label>
+                update((draft) => {
+                  draft.size = size
+                })
+              }}
+            />
+            <span class="opencode-eye-settings__value">{settings().size} px</span>
+          </label>
+        </Show>
       </section>
 
-      <section data-entry="style">
-        <h3>{ctx.t("settings.style")}</h3>
-        <div class="opencode-eye-settings__row" role="group" aria-label={ctx.t("settings.style")}>
-          <For each={STYLES}>
-            {(style) => (
+      <section data-entry="look">
+        <h3>{ctx.t("settings.look")}</h3>
+        <ui.Switch
+          label={ctx.t("settings.brow")}
+          checked={settings().brow}
+          onChange={(checked) =>
+            update((draft) => {
+              draft.brow = checked
+            })
+          }
+        />
+        <div class="opencode-eye-settings__row" role="group" aria-label={ctx.t("settings.stroke")}>
+          <span>{ctx.t("settings.stroke")}</span>
+          <For each={STROKES}>
+            {(stroke) => (
               <ui.Button
                 size="small"
-                variant={settings().style === style ? "contrast" : "neutral"}
+                variant={settings().stroke === stroke ? "contrast" : "neutral"}
                 onClick={() =>
-                  ctx.stores.settings.update((draft) => {
-                    draft.style = style
+                  update((draft) => {
+                    draft.stroke = stroke
                   })
                 }
               >
-                {ctx.t(`settings.style.${style}`)}
+                {ctx.t(`settings.stroke.${stroke}`)}
               </ui.Button>
             )}
           </For>
@@ -104,7 +133,7 @@ export function EyeSettings(props: { readonly target?: string }) {
                 onInput={(event) => {
                   const color = event.currentTarget.value
 
-                  ctx.stores.settings.update((draft) => {
+                  update((draft) => {
                     draft[key] = color
                   })
                 }}
@@ -119,7 +148,7 @@ export function EyeSettings(props: { readonly target?: string }) {
                   variant="ghost"
                   icon="reset"
                   onClick={() =>
-                    ctx.stores.settings.update((draft) => {
+                    update((draft) => {
                       draft[key] = ""
                     })
                   }
@@ -132,7 +161,21 @@ export function EyeSettings(props: { readonly target?: string }) {
         </For>
       </section>
 
-      <StateGallery />
+      <section data-entry="motion">
+        <h3>{ctx.t("settings.motion")}</h3>
+        <ui.Switch
+          label={ctx.t("settings.reduced")}
+          description={ctx.t("settings.reduced.description")}
+          checked={settings().reduced}
+          onChange={(checked) =>
+            update((draft) => {
+              draft.reduced = checked
+            })
+          }
+        />
+      </section>
+
+      <StateGallery reduced={reduced()} />
 
       <McpIcons />
 
@@ -238,56 +281,65 @@ function McpIcons() {
   )
 }
 
-const GALLERY_SIZE = 72
+// Above the size where the scene hides: the props are the point of the gallery.
+const GALLERY_SIZE = 128
 
-/** Every state of the eye, each animated in the user's style and colors while the section is on screen. */
-function StateGallery() {
+/** Every state and modifier of the eye, in the user's drawing and colors. */
+function StateGallery(props: { readonly reduced: boolean }) {
   const ctx = usePlugin<typeof definition>()
-  const settings = () => ctx.stores.settings.value
-  const palette = () => resolvePalette(ctx.appearance.mode(), settings())
-  const [shown, setShown] = createSignal(false)
-  let section: HTMLElement | undefined
 
-  // Ten frame loops are cheap, but there is no reason to run them while the user reads another section.
+  return (
+    <section data-entry="states">
+      <h3>{ctx.t("settings.states")}</h3>
+      <p class="opencode-eye-settings__hint">{ctx.t("settings.states.hint")}</p>
+      <ul class="opencode-eye-states">
+        <For each={GALLERY}>{(item) => <StateCard item={item} reduced={props.reduced} />}</For>
+      </ul>
+    </section>
+  )
+}
+
+function StateCard(props: { readonly item: GalleryItem; readonly reduced: boolean }) {
+  const ctx = usePlugin<typeof definition>()
+  const settings = () => ctx.stores.eye.value
+  const [shown, setShown] = createSignal(false)
+  let card: HTMLLIElement | undefined
+
+  // 21 frame loops are cheap, but only the cards on screen run theirs.
   onMount(() => {
-    if (!section || typeof IntersectionObserver !== "function") return setShown(true)
+    if (!card || typeof IntersectionObserver !== "function") return setShown(true)
     const observer = new IntersectionObserver(([entry]) => setShown(!!entry?.isIntersecting))
 
-    observer.observe(section)
+    observer.observe(card)
     onCleanup(() => observer.disconnect())
   })
 
   return (
-    <section ref={section} data-entry="states">
-      <h3>{ctx.t("settings.states")}</h3>
-      <p class="opencode-eye-settings__hint">{ctx.t("settings.states.hint")}</p>
-      <ul class="opencode-eye-states">
-        <For each={GALLERY}>
-          {(item) => (
-            <li class="opencode-eye-states__card">
-              <div class="opencode-eye-states__figure">
-                <Eye
-                  look={item.look}
-                  size={GALLERY_SIZE}
-                  style={settings().style}
-                  palette={palette()}
-                  label={ctx.t(`states.${item.key}`)}
-                  visible={shown}
-                />
-                <Show when={item.tool}>
-                  {(tool) => (
-                    <span class="opencode-eye__badge">
-                      <ctx.ui.Icon name={toolIcon(tool(), ctx.stores.mcp.value.icons)} size="small" />
-                    </span>
-                  )}
-                </Show>
+    <li ref={card} class="opencode-eye-states__card">
+      <Eye
+        state={props.item.state}
+        tool={!!props.item.tool}
+        mods={modsOf(props.item)}
+        size={GALLERY_SIZE}
+        theme={ctx.appearance.mode()}
+        brow={settings().brow}
+        stroke={settings().stroke}
+        colors={resolveColors(settings())}
+        reduced={props.reduced}
+        visible={shown}
+        badge={
+          <Show when={props.item.tool}>
+            {(tool) => (
+              <div class="eye-badge">
+                <ctx.ui.Icon name={toolIcon(tool(), ctx.stores.mcp.value.icons)} size="small" />
               </div>
-              <strong>{ctx.t(`states.${item.key}`)}</strong>
-              <span class="opencode-eye-settings__hint">{ctx.t(`states.${item.key}.text`)}</span>
-            </li>
-          )}
-        </For>
-      </ul>
-    </section>
+            )}
+          </Show>
+        }
+      />
+      <strong>{props.item.mod ? ctx.t(`mod.${props.item.mod}`) : stateLabel(ctx.t, props.item.state)}</strong>
+      <code>{props.item.mod ? `${props.item.state} + ${props.item.mod}` : props.item.state}</code>
+      <span class="opencode-eye-settings__hint">{ctx.t(`states.${props.item.key}`)}</span>
+    </li>
   )
 }

@@ -19,6 +19,32 @@
   min-height: 200px;
 }
 
+.opencode-eye__figure {
+  position: relative;
+}
+
+/* The running tool's icon, pinned to the eye's lower right edge. */
+.opencode-eye__badge {
+  position: absolute;
+  right: 2%;
+  bottom: 2%;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--opencode-eye-badge, color-mix(in srgb, currentColor 8%, Canvas));
+  box-shadow: 0 0 0 2px Canvas;
+  animation: opencode-eye-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes opencode-eye-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+
 .opencode-eye__svg {
   display: block;
   overflow: visible;
@@ -74,6 +100,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .opencode-eye__badge {
+    animation: none;
+  }
+
   .opencode-eye__spiral,
   .opencode-eye__zzz text {
     animation: none;

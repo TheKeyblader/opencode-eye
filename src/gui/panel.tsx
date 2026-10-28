@@ -3,6 +3,8 @@ import { usePlugin, type MountedSession } from "@opencode/plugin/gui"
 import type { EventLog } from "./debug"
 import type { definition } from "./definition"
 import { Eye, themePalette } from "./eye"
+import { runningIcon } from "./icons"
+import { stateLabel, toolName } from "./labels"
 import type { Look } from "./motion"
 import { currentTool, initial, type EyeState, type Sessions } from "./state"
 
@@ -29,20 +31,22 @@ export function EyePanel(props: {
     undefined,
     { equals: (a, b) => a.mood === b.mood && a.kind === b.kind && a.stuck === b.stuck },
   )
-  const label = () => {
-    const current = state()
-    const tool = currentTool(current)
-
-    if (current.mood !== "tool") return ctx.t(`mood.${current.mood}`)
-    const name = tool?.inner ? `${tool.name} → ${tool.inner}` : tool?.name
-
-    return name ? `${ctx.t(`tool.${tool!.kind}`)} · ${name}` : ctx.t(`tool.${tool?.kind ?? "generic"}`)
-  }
+  const label = () => stateLabel(ctx.t, state())
+  const tool = () => (state().mood === "tool" ? currentTool(state()) : undefined)
 
   return (
     <div class="opencode-eye" data-session={props.session.id} data-mood={look().mood}>
       <div class="opencode-eye__stage">
-        <Eye look={look()} size={160} palette={themePalette(ctx.appearance.mode())} label={label()} />
+        <div class="opencode-eye__figure">
+          <Eye look={look()} size={160} palette={themePalette(ctx.appearance.mode())} label={label()} />
+          <Show when={tool()}>
+            {(running) => (
+              <span class="opencode-eye__badge" title={toolName(running())}>
+                <ctx.ui.Icon name={runningIcon(running())} size="normal" />
+              </span>
+            )}
+          </Show>
+        </div>
         <p class="opencode-eye__label" aria-live="polite">
           {label()}
         </p>

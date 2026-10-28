@@ -1,14 +1,52 @@
-import { createMemo, createSignal, For, Show } from "solid-js"
+import { createMemo, createSignal, For, Show, type Accessor } from "solid-js"
 import { usePlugin, type MountedSession } from "@opencode/plugin/gui"
 import type { EventLog } from "./debug"
 import type { definition } from "./definition"
+import { Eye, themePalette } from "./eye"
+import type { Look } from "./motion"
+import { currentTool, initial, type EyeState, type Sessions } from "./state"
 
-export function EyePanel(props: { readonly session: MountedSession; readonly log: EventLog }) {
+const IDLE = initial(0)
+
+export function EyePanel(props: {
+  readonly session: MountedSession
+  readonly eyes: Accessor<Sessions>
+  readonly log: EventLog
+}) {
   const ctx = usePlugin<typeof definition>()
+  // Read through the getter each time: the panel stays mounted when the user switches sessions.
+  const state = (): EyeState => props.eyes()[props.session.id] ?? IDLE
+  const look = createMemo(
+    (): Look => {
+      const current = state()
+
+      return {
+        mood: current.mood,
+        kind: currentTool(current)?.kind,
+        stuck: current.mood === "error" && current.error?.until === undefined,
+      }
+    },
+    undefined,
+    { equals: (a, b) => a.mood === b.mood && a.kind === b.kind && a.stuck === b.stuck },
+  )
+  const label = () => {
+    const current = state()
+    const tool = currentTool(current)
+
+    if (current.mood !== "tool") return ctx.t(`mood.${current.mood}`)
+    const name = tool?.inner ? `${tool.name} → ${tool.inner}` : tool?.name
+
+    return name ? `${ctx.t(`tool.${tool!.kind}`)} · ${name}` : ctx.t(`tool.${tool?.kind ?? "generic"}`)
+  }
 
   return (
-    <div class="opencode-eye" data-session={props.session.id}>
-      <p class="opencode-eye__empty">{ctx.t("panel.empty")}</p>
+    <div class="opencode-eye" data-session={props.session.id} data-mood={look().mood}>
+      <div class="opencode-eye__stage">
+        <Eye look={look()} size={160} palette={themePalette(ctx.appearance.mode())} label={label()} />
+        <p class="opencode-eye__label" aria-live="polite">
+          {label()}
+        </p>
+      </div>
       <DebugLog session={props.session} log={props.log} />
     </div>
   )
@@ -32,7 +70,8 @@ function DebugLog(props: { readonly session: MountedSession; readonly log: Event
   const dump = () => props.log.serialize({ app: ctx.app.version, platform: ctx.app.platform, session: props.session.id })
 
   return (
-    <section class="opencode-eye-debug">
+    <details class="opencode-eye-debug" open={enabled()}>
+      <summary>{ctx.t("debug.title")}</summary>
       <ui.Switch
         label={ctx.t("debug.switch")}
         description={ctx.t("debug.description")}
@@ -99,6 +138,6 @@ function DebugLog(props: { readonly session: MountedSession; readonly log: Event
           </For>
         </ol>
       </Show>
-    </section>
+    </details>
   )
 }

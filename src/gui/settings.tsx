@@ -1,13 +1,14 @@
-import { createMemo, createSignal, For, Show } from "solid-js"
+import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
 import { createKeyed, usePlugin } from "@opencode/plugin/gui"
 import type { definition } from "./definition"
 import { Eye } from "./eye"
+import { GALLERY } from "./gallery"
 import { pickIcon } from "./icon-picker"
-import { isIconName } from "./icons"
+import { isIconName, toolIcon } from "./icons"
 import { clampSize, COLORS, computedHex, FALLBACK, resolvePalette, SIZE, STYLES, themePalette } from "./palette"
 
 /** The search entries of the settings page; each row carries its id so search can reveal it. */
-export const ENTRIES = ["size", "style", "colors", "mcp", "debug"] as const
+export const ENTRIES = ["size", "style", "colors", "states", "mcp", "debug"] as const
 
 export function EyeSettings(props: { readonly target?: string }) {
   const ctx = usePlugin<typeof definition>()
@@ -131,6 +132,8 @@ export function EyeSettings(props: { readonly target?: string }) {
         </For>
       </section>
 
+      <StateGallery />
+
       <McpIcons />
 
       <section data-entry="debug">
@@ -231,6 +234,60 @@ function McpIcons() {
           )
         }}
       </For>
+    </section>
+  )
+}
+
+const GALLERY_SIZE = 72
+
+/** Every state of the eye, each animated in the user's style and colors while the section is on screen. */
+function StateGallery() {
+  const ctx = usePlugin<typeof definition>()
+  const settings = () => ctx.stores.settings.value
+  const palette = () => resolvePalette(ctx.appearance.mode(), settings())
+  const [shown, setShown] = createSignal(false)
+  let section: HTMLElement | undefined
+
+  // Ten frame loops are cheap, but there is no reason to run them while the user reads another section.
+  onMount(() => {
+    if (!section || typeof IntersectionObserver !== "function") return setShown(true)
+    const observer = new IntersectionObserver(([entry]) => setShown(!!entry?.isIntersecting))
+
+    observer.observe(section)
+    onCleanup(() => observer.disconnect())
+  })
+
+  return (
+    <section ref={section} data-entry="states">
+      <h3>{ctx.t("settings.states")}</h3>
+      <p class="opencode-eye-settings__hint">{ctx.t("settings.states.hint")}</p>
+      <ul class="opencode-eye-states">
+        <For each={GALLERY}>
+          {(item) => (
+            <li class="opencode-eye-states__card">
+              <div class="opencode-eye-states__figure">
+                <Eye
+                  look={item.look}
+                  size={GALLERY_SIZE}
+                  style={settings().style}
+                  palette={palette()}
+                  label={ctx.t(`states.${item.key}`)}
+                  visible={shown}
+                />
+                <Show when={item.tool}>
+                  {(tool) => (
+                    <span class="opencode-eye__badge">
+                      <ctx.ui.Icon name={toolIcon(tool(), ctx.stores.mcp.value.icons)} size="small" />
+                    </span>
+                  )}
+                </Show>
+              </div>
+              <strong>{ctx.t(`states.${item.key}`)}</strong>
+              <span class="opencode-eye-settings__hint">{ctx.t(`states.${item.key}.text`)}</span>
+            </li>
+          )}
+        </For>
+      </ul>
     </section>
   )
 }

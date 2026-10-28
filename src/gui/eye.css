@@ -287,6 +287,43 @@
   text-align: right;
 }
 
+.opencode-eye-states {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.opencode-eye-states__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  font-size: 12px;
+  text-align: center;
+}
+
+.opencode-eye-states__card .opencode-eye-settings__hint {
+  margin: 0;
+}
+
+.opencode-eye-states__figure {
+  position: relative;
+  margin-bottom: 4px;
+}
+
+.opencode-eye-states__figure .opencode-eye__badge {
+  width: 22px;
+  height: 22px;
+  right: -4%;
+  bottom: -4%;
+}
+
 .opencode-eye-picker {
   display: flex;
   flex-direction: column;

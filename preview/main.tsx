@@ -1,6 +1,7 @@
 import { createSignal, For, Show } from "solid-js"
 import { render } from "solid-js/web"
 import { Eye } from "../src/gui/eye"
+import { GALLERY } from "../src/gui/gallery"
 import { simulate, type Look } from "../src/gui/motion"
 import { themePalette, type EyeStyle } from "../src/gui/palette"
 import { setVisible, usePanel } from "./plugin-gui"
@@ -24,18 +25,8 @@ const NORD: Record<"light" | "dark", Record<string, string>> = {
   },
 }
 
-const LOOKS: Record<string, Look> = {
-  idle: { mood: "idle" },
-  thinking: { mood: "thinking" },
-  read: { mood: "tool", kind: "read" },
-  edit: { mood: "tool", kind: "edit" },
-  shell: { mood: "tool", kind: "shell" },
-  generic: { mood: "tool", kind: "generic" },
-  attention: { mood: "attention" },
-  "error (flash)": { mood: "error" },
-  "error (stuck)": { mood: "error", stuck: true },
-  sleeping: { mood: "sleeping" },
-}
+// The settings gallery's states, by key: ?look=<key>.
+const LOOKS: Record<string, Look> = Object.fromEntries(GALLERY.map((item) => [item.key, item.look]))
 
 function App() {
   const params = new URLSearchParams(location.search)

@@ -1,0 +1,34 @@
+# Publishes the package to npm when a GitHub release is published, with npm's trusted publishing: no token, npm
+# trusts this workflow through OIDC and adds provenance. On npmjs.com, the package's settings must name this trusted
+# publisher (TheKeyblader/opencode-eye, workflow publish.yml). The tag must match package.json's version (v0.1.0 for
+# 0.1.0).
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  # The OIDC token npm trusts.
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm 11.5.1 or later; Node 22 ships npm 10.
+      - run: npm install -g npm@^11.5.1
+      - name: Check the tag against the version
+        run: test "${GITHUB_REF_NAME}" = "v$(node -p "require('./package.json').version")"
+      - run: bun install --frozen-lockfile
+      # prepublishOnly typechecks, tests and builds first.
+      - run: npm publish

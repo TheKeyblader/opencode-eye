@@ -1,5 +1,5 @@
 {
-  "name": "opencode-eye",
+  "name": "@enx2/opencode-eye",
   "version": "0.1.0",
   "description": "An animated eye in OpenCode Desktop that shows what the AI is doing",
   "keywords": [
@@ -19,10 +19,15 @@
   "bugs": {
     "url": "https://github.com/TheKeyblader/opencode-eye/issues"
   },
-  "private": true,
   "type": "module",
   "exports": {
     "./gui-experimental": "./dist/gui-experimental.cjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "vite build",
@@ -30,12 +35,21 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "preview": "vite --config vite.preview.config.ts",
-    "icons": "bun scripts/icon-names.ts"
+    "icons": "bun scripts/icon-names.ts",
+    "prepublishOnly": "bun run typecheck && bun test && bun run build"
   },
-  "dependencies": {
-    "@opencode/plugin": "2.2.0"
+  "peerDependencies": {
+    "@opencode/plugin": "^2.2.0",
+    "effect": "^4.0.0",
+    "solid-js": "^1.9.0"
+  },
+  "peerDependenciesMeta": {
+    "solid-js": {
+      "optional": true
+    }
   },
   "devDependencies": {
+    "@opencode/plugin": "2.2.0",
     "@types/bun": "^1.4.4",
     "effect": "4.0.1",
     "solid-js": "^1.9.17",

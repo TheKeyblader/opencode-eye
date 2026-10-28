@@ -1,5 +1,11 @@
 # opencode-eye
 
+[![npm](https://img.shields.io/npm/v/@enx2/opencode-eye)](https://www.npmjs.com/package/@enx2/opencode-eye)
+[![CI](https://github.com/TheKeyblader/opencode-eye/actions/workflows/ci.yml/badge.svg)](https://github.com/TheKeyblader/opencode-eye/actions/workflows/ci.yml)
+
+> **Not affiliated with OpenCode.** This is a community plugin: it is not built by the OpenCode team and is not
+> affiliated with them in any way.
+
 An animated eye for [OpenCode Desktop](https://opencode.ai) that shows what the AI is doing. It lives in a tab of the
 session's side panel and reacts to everything the agent does: it thinks with a thought bubble, reads with a magnifier,
 writes with a pencil, stares at the terminal, waits for your approval, falls asleep while the conversation compacts,
@@ -7,14 +13,23 @@ rolls its eye when a tool fails and cheers when the run is done.
 
 It is a companion, not a loading spinner.
 
-![The eye's 18 states and 3 modifiers](docs/states.png)
-
-## Requirements
-
-- OpenCode Desktop **2.2.0** or later (the plugin uses the experimental GUI plugin API).
-- [Bun](https://bun.sh) to build it.
+![The eye's 18 states and 3 modifiers](https://raw.githubusercontent.com/TheKeyblader/opencode-eye/master/docs/states.png)
 
 ## Install
+
+It needs OpenCode Desktop **2.2.0** or later: the plugin uses the experimental GUI plugin API.
+
+Add the package to the `plugins` of your OpenCode config (`~/.config/opencode/opencode.json`):
+
+```json
+{
+  "plugins": ["@enx2/opencode-eye"]
+}
+```
+
+Restart OpenCode Desktop.
+
+To run it from a clone instead, build it with [Bun](https://bun.sh) and give OpenCode the folder:
 
 ```sh
 git clone https://github.com/TheKeyblader/opencode-eye.git
@@ -23,15 +38,11 @@ bun install
 bun run build
 ```
 
-Then add the folder to the `plugins` of your OpenCode config (`~/.config/opencode/opencode.json`):
-
 ```json
 {
   "plugins": ["/path/to/opencode-eye"]
 }
 ```
-
-Restart OpenCode Desktop.
 
 ## Use
 

@@ -1,0 +1,225 @@
+/* =====================================================================
+   L'œil : CSS de référence (validé en maquette)
+   Racine : .eye-root avec data-theme, data-brow, data-reduced,
+            data-impatient, data-tired, data-compact (on sous 120 px)
+   États  : data-state sur .eye et sur .stage (mêmes valeurs)
+   Les variables --look-x, --lid, --lx… sont écrites par eye-engine.js.
+   ===================================================================== */
+
+/* ---------- Tokens ---------- */
+/* Brancher --bg, --bg2, --line, --text, --muted sur les tokens du thème OpenCode. */
+.eye-root {
+  --bg: #16181d; --bg2: #1c1f25; --line: #2a2e36; --text: #d5d8de; --muted: #8d929d;
+  --contour: #8fb3ff;
+  --pupil-c: var(--contour);
+  --fill: color-mix(in oklch, var(--contour) 9%, transparent);
+  --err: #ff9a6b;
+  --stroke-w: 3.5;
+  --ease-pop: cubic-bezier(.34, 1.56, .64, 1);
+  --ease-bounce: cubic-bezier(.34, 1.8, .5, 1);
+}
+.eye-root[data-theme=light] {
+  --bg: #fbfbfa; --bg2: #f1f1ee; --line: #dcdbd6; --text: #26282d; --muted: #5d616a;
+  --contour: #2f55c8;
+  --err: #c2410c;
+}
+
+/* ---------- Mise en page ---------- */
+.eye-wrap { position: relative; display: flex; flex-direction: column; align-items: center; }
+.eye-btn { appearance: none; border: 0; background: none; padding: 0; margin: 0; cursor: pointer; border-radius: 50%; display: block; }
+.eye-btn:focus-visible { outline: 2px solid var(--contour); outline-offset: 6px; }
+.eye-badge {
+  position: absolute; top: 2%; right: -16%;
+  display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 4px;
+  border: 1.5px solid var(--contour); color: var(--contour); background: var(--bg);
+  font: 600 11px/1 ui-monospace, "JetBrains Mono", monospace; white-space: nowrap;
+  animation: eye-pop .45s var(--ease-pop) both; pointer-events: none;
+}
+.eye-badge .count { padding: 2px 4px; border-radius: 3px; background: var(--contour); color: var(--bg); }
+.eye-status { display: flex; align-items: center; gap: 8px; font: 12px/1 ui-monospace, monospace; color: var(--muted); }
+.eye-status .dot { width: 7px; height: 7px; border-radius: 2px; background: var(--muted); flex: none; }
+.eye-status .dot.on { background: var(--contour); }
+.eye-status .dot.err { background: var(--err); }
+.eye-status .dot.att { background: var(--contour); animation: eye-blinkdot 1s steps(1) infinite; }
+@keyframes eye-blinkdot { 50% { opacity: .2; } }
+@keyframes eye-pop { from { transform: translateY(6px) scale(.7); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ---------- L'œil ---------- */
+.eye { display: block; overflow: visible; filter: drop-shadow(0 0 10px color-mix(in oklch, var(--contour) 35%, transparent)); }
+.eye .body  { transform-box: view-box; transform-origin: 100px 100px; transform: translateX(calc(var(--shake, 0) * 1px)) scale(var(--kick, 1)); }
+.eye .lids  { transform-box: view-box; transform-origin: 100px 100px; transform: scaleY(calc(1 - var(--lid, 0) * .94)); transition: opacity .14s; }
+.eye .look  { transform: translate(calc(var(--look-x, 0) * 1px), calc(var(--look-y, 0) * 1px)); transition: opacity .25s; }
+.eye .pupil { transform-box: view-box; transform-origin: 100px 100px; transform: scale(var(--pupil, 1)); }
+.eye .ring  { fill: var(--fill); stroke: var(--contour); stroke-width: var(--stroke-w); transition: stroke .2s; }
+.eye .tick  { stroke: var(--contour); stroke-width: var(--stroke-w); stroke-linecap: round; transition: stroke .2s; }
+.eye .ticks { transform-box: view-box; transform-origin: 100px 100px; transition: transform .5s var(--ease-pop), opacity .4s; }
+.eye .pup   { fill: var(--pupil-c); transition: fill .2s; }
+.eye .brow-g { transform-box: view-box; transform-origin: 100px -10px; transform: translateY(calc(var(--brow-y, 0) * 1px)) rotate(calc(var(--brow-r, 0) * 1deg)); }
+.eye .brow  { fill: none; stroke: var(--contour); stroke-width: calc(var(--stroke-w) * 1.15); stroke-linecap: round; transition: stroke .2s; }
+.eye-root[data-brow=off] .brow-g { display: none; }
+
+/* erreurs */
+.eye .spiral-g { opacity: 0; transform-box: view-box; transform-origin: 100px 100px; transition: opacity .3s; }
+.eye .spiral   { fill: none; stroke: var(--err); stroke-width: var(--stroke-w); stroke-linecap: round; }
+.eye[data-state=error-spiral] .spiral-g { opacity: 1; animation: eye-spin 1.8s linear infinite; }
+.eye[data-state=error-spiral] .look { opacity: 0; }
+.eye[data-state^=error] .ring, .eye[data-state^=error] .tick, .eye[data-state^=error] .brow { stroke: var(--err); }
+.eye[data-state^=error] .pup { fill: var(--err); }
+.eye .stars { opacity: 0; transform-box: view-box; transform-origin: 100px 100px; transition: opacity .2s; }
+.eye[data-state^=error] .stars { opacity: 1; animation: eye-spin 2.2s linear infinite; }
+.eye .star { fill: var(--err); }
+
+/* attention */
+.eye .halo { fill: none; stroke: var(--contour); stroke-width: 2; opacity: 0; transform-box: view-box; transform-origin: 100px 100px; }
+.eye[data-state=attention] .halo  { animation: eye-ping 1.6s ease-out infinite; }
+.eye[data-state=attention] .ticks { transform: scale(1.07); }
+
+/* sleep */
+.eye[data-state=sleep] .ticks { opacity: .35; }
+.eye .zz { fill: var(--contour); font: 600 20px ui-monospace, "JetBrains Mono", monospace; opacity: 0; transform-box: fill-box; transform-origin: center; }
+.eye[data-state=sleep] .zz { animation: eye-zfloat 2.6s ease-out infinite; }
+.eye[data-state=sleep] .z2 { animation-delay: .85s; }
+.eye[data-state=sleep] .z3 { animation-delay: 1.7s; }
+
+/* happy */
+.eye .smile { fill: none; stroke: var(--contour); stroke-width: calc(var(--stroke-w) * 1.3); stroke-linecap: round; opacity: 0; transform-box: view-box; transform-origin: 100px 96px; transform: scale(.5); transition: opacity .15s, transform .45s var(--ease-bounce); }
+.eye[data-state=happy] .smile { opacity: 1; transform: none; }
+.eye[data-state=happy] .lids  { opacity: 0; }
+.eye .cf { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.eye .cf:nth-child(3n+1) { fill: var(--contour); }
+.eye .cf:nth-child(3n+2) { fill: var(--muted); }
+.eye .cf:nth-child(3n)   { fill: var(--pupil-c); }
+.eye[data-state=happy] .cf { animation: eye-fall 1.1s ease-in both; }
+
+/* think : bulle */
+.eye .bubble   { transform-box: view-box; transform-origin: 100px 100px; transform: scaleX(var(--bub-s, 1)); }
+.eye .bub-part { fill: var(--bg); stroke: var(--contour); stroke-width: 2.5; opacity: 0; transform-box: fill-box; transform-origin: center; transform: scale(.3); transition: opacity .2s, transform .45s var(--ease-bounce); }
+.eye .b2 { transition-delay: .08s; }
+.eye .b3 { transition-delay: .16s; }
+.eye[data-state=think] .bub-part { opacity: 1; transform: none; }
+.eye .bdot { fill: var(--contour); opacity: 0; }
+.eye[data-state=think] .bdot { animation: eye-bdot 1.2s ease-in-out infinite; }
+.eye[data-state=think] .d2 { animation-delay: .15s; }
+.eye[data-state=think] .d3 { animation-delay: .3s; }
+
+/* modificateurs */
+.eye .hourglass, .eye .coffee { opacity: 0; transition: opacity .3s; }
+.eye-root[data-impatient=on] .eye[data-tool=yes] .hourglass { opacity: 1; }
+.eye-root[data-tired=on] .eye .coffee { opacity: 1; }
+.eye .hg    { animation: eye-flip 1.8s ease-in-out infinite; }
+.eye .hg-l  { fill: none; stroke: var(--contour); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.eye .hg-s  { fill: var(--contour); }
+.eye .cup   { fill: var(--bg); stroke: var(--contour); stroke-width: 2.2; stroke-linejoin: round; }
+.eye .cup-h { fill: none; stroke: var(--contour); stroke-width: 2.2; stroke-linecap: round; }
+.eye .steam { fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; animation: eye-steam 2s ease-in-out infinite; }
+.eye .s2    { animation-delay: -1s; }
+
+/* ---------- La scène sous l'œil ---------- */
+.stage { display: block; overflow: visible; margin: 4px auto 0; }
+.stage .ln    { fill: none; stroke: var(--contour); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.stage .bgf   { fill: var(--bg); }
+.stage .mut   { stroke: var(--muted); }
+.stage .fillc { fill: var(--contour); }
+
+/* apparition commune des accessoires */
+.stage .prop, .stage .paper-g {
+  opacity: 0; transform-box: view-box; transform-origin: 100px 118px; transform: translateY(18px) scale(.6);
+  transition: transform .5s var(--ease-pop), opacity .2s;
+}
+.stage[data-state=read] .paper-g, .stage[data-state=write] .paper-g,
+.stage[data-state=shell] .p-term, .stage[data-state=generic] .p-puzzle, .stage[data-state=delegate] .p-mini,
+.stage[data-state=web] .p-globe, .stage[data-state=plan] .p-plan, .stage[data-state=respond] .p-speech,
+.stage[data-state=attention] .p-ask, .stage[data-state=sleep] .p-pillow { opacity: 1; transform: none; }
+
+/* read / write */
+.stage .paper { fill: var(--bg); stroke: var(--contour); stroke-width: 2.5; stroke-linejoin: round; }
+.stage .fold  { fill: none; stroke: var(--contour); stroke-width: 2.5; stroke-linejoin: round; }
+.stage .txt   { stroke: var(--muted); stroke-width: 3; stroke-linecap: round; opacity: 0; transition: opacity .2s, stroke .2s; }
+.stage[data-state=read] .txt { opacity: .45; }
+.stage[data-state=read][data-line="0"] .txt:nth-of-type(1),
+.stage[data-state=read][data-line="1"] .txt:nth-of-type(2),
+.stage[data-state=read][data-line="2"] .txt:nth-of-type(3),
+.stage[data-state=read][data-line="3"] .txt:nth-of-type(4) { opacity: 1; stroke: var(--contour); }
+.stage .wline { fill: none; stroke: var(--contour); stroke-width: 3; stroke-linecap: round; opacity: 0; }
+.stage[data-state=write] .wline { opacity: 1; }
+.stage .loupe-g { transform: translate(calc(var(--lx, 64) * 1px), calc(var(--ly, 32) * 1px)); opacity: 0; transition: opacity .2s; }
+.stage[data-state=read] .loupe-g { opacity: 1; }
+.stage .lens   { fill: color-mix(in oklch, var(--contour) 14%, var(--bg)); fill-opacity: .55; stroke: var(--contour); stroke-width: 2.5; }
+.stage .handle { stroke: var(--contour); stroke-width: 4.5; stroke-linecap: round; }
+.stage .pen-g  { transform: translate(calc(var(--px, 64) * 1px), calc(var(--py, 32) * 1px)) rotate(calc(var(--pr, 0) * 1deg)); opacity: 0; transition: opacity .2s; }
+.stage[data-state=write] .pen-g { opacity: 1; }
+.stage .pen     { fill: var(--bg); stroke: var(--contour); stroke-width: 2.5; stroke-linejoin: round; }
+.stage .pen-tip { fill: var(--contour); }
+
+/* shell */
+.stage .t-scroll { animation: eye-tscroll 2.6s ease-in-out infinite; }
+.stage .t-cur    { fill: var(--contour); animation: eye-caret 1s steps(1) infinite; }
+
+/* generic */
+.stage .pz-pos { transform: translate(calc(var(--zx, 100) * 1px), calc(var(--zy, 60) * 1px)); }
+.stage .pz     { animation: eye-spin 5s linear infinite; }
+
+/* delegate */
+.stage .mini-pos  { transform: translate(calc(var(--mix, 100) * 1px), calc(var(--miy, 62) * 1px)); }
+.stage .mini-look { transform: translate(calc(var(--mpx, 0) * 1px), calc(var(--mpy, 0) * 1px)); }
+.stage .mini-pup  { fill: var(--pupil-c); }
+
+/* web */
+.stage .g-mer { transform-box: fill-box; transform-origin: center; vector-effect: non-scaling-stroke; animation: eye-mer 3s linear infinite; }
+.stage .m2    { animation-delay: -1.5s; }
+
+/* respond */
+.stage .sp { stroke-dasharray: 80 80; stroke-dashoffset: 80; }
+.stage[data-state=respond] .sp1 { animation: eye-sp1 3.2s linear infinite; }
+.stage[data-state=respond] .sp2 { animation: eye-sp2 3.2s linear infinite; }
+.stage[data-state=respond] .sp3 { animation: eye-sp3 3.2s linear infinite; }
+
+/* attention */
+.stage .ask-swing { transform-box: view-box; transform-origin: 100px 2px; animation: eye-swing 1.6s ease-in-out infinite; }
+
+/* sleep */
+.stage .pill { transform-box: view-box; transform-origin: 100px 60px; animation: eye-breathe 3s ease-in-out infinite; }
+
+/* ---------- Petite taille (< 120 px) ---------- */
+.eye-root[data-compact=on] .stage,
+.eye-root[data-compact=on] .eye .bubble,
+.eye-root[data-compact=on] .eye .confetti,
+.eye-root[data-compact=on] .eye .hourglass,
+.eye-root[data-compact=on] .eye .coffee,
+.eye-root[data-compact=on] .eye .ticks { display: none; }
+
+/* ---------- Mouvement réduit ---------- */
+/* data-reduced="on" est posé par le composant (prefers-reduced-motion ou réglage du plugin). */
+.eye-root[data-reduced=on] .eye .spiral-g,
+.eye-root[data-reduced=on] .eye .halo,
+.eye-root[data-reduced=on] .eye .stars,
+.eye-root[data-reduced=on] .eye .hg,
+.eye-root[data-reduced=on] .eye .steam,
+.eye-root[data-reduced=on] .eye .bdot,
+.eye-root[data-reduced=on] .stage .pz,
+.eye-root[data-reduced=on] .stage .g-mer,
+.eye-root[data-reduced=on] .stage .ask-swing,
+.eye-root[data-reduced=on] .stage .pill,
+.eye-root[data-reduced=on] .stage .t-scroll,
+.eye-root[data-reduced=on] .eye-badge { animation: none; }
+.eye-root[data-reduced=on] .eye[data-state=attention] .halo { opacity: .35; transform: scale(1.1); }
+.eye-root[data-reduced=on] .eye[data-state=sleep] .zz { animation: none; opacity: .8; }
+.eye-root[data-reduced=on] .eye[data-state=think] .bdot { opacity: .8; }
+.eye-root[data-reduced=on] .eye .cf { animation: none; opacity: 0; }
+
+/* ---------- Keyframes ---------- */
+@keyframes eye-spin    { to { transform: rotate(360deg); } }
+@keyframes eye-ping    { 0% { opacity: .55; transform: scale(1); } 100% { opacity: 0; transform: scale(1.28); } }
+@keyframes eye-zfloat  { 0% { opacity: 0; transform: translate(0, 0) scale(.6); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(16px, -34px) scale(1.25); } }
+@keyframes eye-fall    { 0% { opacity: 1; transform: translateY(0) rotate(0); } 100% { opacity: 0; transform: translateY(160px) rotate(260deg); } }
+@keyframes eye-bdot    { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+@keyframes eye-flip    { 0%, 65% { transform: rotate(0); } 85%, 100% { transform: rotate(180deg); } }
+@keyframes eye-steam   { 0% { opacity: 0; transform: translateY(2px); } 40% { opacity: .9; } 100% { opacity: 0; transform: translateY(-6px); } }
+@keyframes eye-tscroll { 0%, 22% { transform: translateY(0); } 33%, 55% { transform: translateY(-18px); } 66%, 88% { transform: translateY(-36px); } 100% { transform: translateY(-54px); } }
+@keyframes eye-caret   { 50% { opacity: 0; } }
+@keyframes eye-mer     { 0% { transform: scaleX(1); } 50% { transform: scaleX(.02); } 100% { transform: scaleX(1); } }
+@keyframes eye-sp1     { 0% { stroke-dashoffset: 80; } 25%, 92% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 80; } }
+@keyframes eye-sp2     { 0%, 25% { stroke-dashoffset: 80; } 50%, 92% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 80; } }
+@keyframes eye-sp3     { 0%, 50% { stroke-dashoffset: 80; } 75%, 92% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 80; } }
+@keyframes eye-swing   { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }
+@keyframes eye-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04, 1.06); } }

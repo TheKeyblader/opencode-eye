@@ -1,0 +1,235 @@
+<!--
+  L'œil : markup de référence (validé en maquette).
+  À porter en JSX Solid. Les valeurs entre {accolades} sont dynamiques :
+    {state}      → valeur de data-state (idle, think, read…)
+    {tool}       → "yes" si un outil est affiché, sinon "no"
+    {size}       → largeur de l'œil en px (80 à 300) ; hauteur de l'œil = size × 1,15 ; hauteur de la scène = size × 0,6
+    {uid}        → identifiant unique par instance (createUniqueId) pour les clipPath
+  Les attributs data-theme, data-brow, data-reduced, data-impatient et data-tired vont sur la racine .eye-root.
+  Les variables --look-x, --lid, --lx… sont écrites par eye-engine.js : ne pas les poser en dur.
+-->
+<div class="eye-root" data-theme="dark" data-brow="on" data-reduced="off" data-impatient="off" data-tired="off"
+     style="--stroke-w: 3.5">
+
+  <div class="eye-wrap">
+    <button class="eye-btn" type="button" aria-label="Afficher les détails de l'œil">
+      <svg class="eye" data-eye data-state="{state}" data-tool="{tool}" viewBox="0 -30 200 230"
+           style="width: {size}px; height: calc({size}px * 1.15)" aria-hidden="true">
+        <defs>
+          <clipPath id="ring-{uid}"><circle cx="100" cy="100" r="72"/></clipPath>
+        </defs>
+
+        <g class="body">
+          <circle class="halo" cx="100" cy="100" r="72"/>
+
+          <!-- sourcil -->
+          <g class="brow-g"><path class="brow" d="M 64 -6 Q 100 -20 136 -6"/></g>
+
+          <!-- tout ce qui suit la paupière (scaleY) -->
+          <g class="lids">
+            <g class="ticks">
+              <line class="tick" x1="100" y1="19" x2="100" y2="8" transform="rotate(-44 100 100)"/>
+              <line class="tick" x1="100" y1="19" x2="100" y2="8" transform="rotate(-22 100 100)"/>
+              <line class="tick" x1="100" y1="19" x2="100" y2="8"/>
+              <line class="tick" x1="100" y1="19" x2="100" y2="8" transform="rotate(22 100 100)"/>
+              <line class="tick" x1="100" y1="19" x2="100" y2="8" transform="rotate(44 100 100)"/>
+            </g>
+            <circle class="ring" cx="100" cy="100" r="72"/>
+            <g clip-path="url(#ring-{uid})">
+              <g class="look"><g class="pupil"><circle class="pup" cx="100" cy="100" r="17"/></g></g>
+              <!-- spirale d'Archimède r = 2 + 1,75θ, θ de 0 à 7π, pas de 0,2 rad : générer le d au montage (voir eye-engine.js, spiralPath) -->
+              <g class="spiral-g"><path class="spiral" d="{spiralPath()}"/></g>
+            </g>
+          </g>
+
+          <!-- état happy : arc « ^ » -->
+          <path class="smile" d="M 46 112 Q 100 48 154 112"/>
+
+          <!-- état sleep : les « z » -->
+          <g>
+            <text class="zz z1" x="150" y="26">z</text>
+            <text class="zz z2" x="150" y="26">z</text>
+            <text class="zz z3" x="150" y="26">Z</text>
+          </g>
+        </g>
+
+        <!-- erreurs : étoiles qui tournent -->
+        <g class="stars">
+          <path class="star" transform="translate(190 100)" d="M 0 -9 Q 1.6 -1.6 9 0 Q 1.6 1.6 0 9 Q -1.6 1.6 -9 0 Q -1.6 -1.6 0 -9 Z"/>
+          <path class="star" transform="translate(55 178)" d="M 0 -9 Q 1.6 -1.6 9 0 Q 1.6 1.6 0 9 Q -1.6 1.6 -9 0 Q -1.6 -1.6 0 -9 Z"/>
+          <path class="star" transform="translate(55 22)"  d="M 0 -9 Q 1.6 -1.6 9 0 Q 1.6 1.6 0 9 Q -1.6 1.6 -9 0 Q -1.6 -1.6 0 -9 Z"/>
+        </g>
+
+        <!-- happy : confettis -->
+        <g class="confetti">
+          <rect class="cf" x="34"  y="-34" width="3.5" height="9" style="animation-delay: 0s"/>
+          <rect class="cf" x="56"  y="-48" width="3.5" height="9" style="animation-delay: .08s"/>
+          <rect class="cf" x="78"  y="-28" width="3.5" height="9" style="animation-delay: .03s"/>
+          <rect class="cf" x="96"  y="-52" width="3.5" height="9" style="animation-delay: .12s"/>
+          <rect class="cf" x="112" y="-36" width="3.5" height="9" style="animation-delay: .05s"/>
+          <rect class="cf" x="130" y="-46" width="3.5" height="9" style="animation-delay: .15s"/>
+          <rect class="cf" x="148" y="-30" width="3.5" height="9" style="animation-delay: .02s"/>
+          <rect class="cf" x="166" y="-50" width="3.5" height="9" style="animation-delay: .1s"/>
+          <rect class="cf" x="46"  y="-20" width="3.5" height="9" style="animation-delay: .18s"/>
+          <rect class="cf" x="138" y="-22" width="3.5" height="9" style="animation-delay: .2s"/>
+        </g>
+
+        <!-- modificateur impatient : sablier -->
+        <g class="hourglass" transform="translate(16 4)">
+          <g class="hg">
+            <path class="hg-l" d="M -7 -10 H 7 M -7 10 H 7 M -5.5 -10 L 0 0 L -5.5 10 M 5.5 -10 L 0 0 L 5.5 10"/>
+            <path class="hg-s" d="M -3 8.5 L 0 4 L 3 8.5 Z"/>
+          </g>
+        </g>
+
+        <!-- modificateur tired : café -->
+        <g class="coffee" transform="translate(18 170)">
+          <path class="cup" d="M -10 -4 H 8 V 4 Q 8 12 -1 12 Q -10 12 -10 4 Z"/>
+          <path class="cup-h" d="M 8 -1 Q 14 -1 14 3 Q 14 7 8 7"/>
+          <path class="steam" d="M -5 -8 q -3 -4 0 -8 q 3 -4 0 -8"/>
+          <path class="steam s2" d="M 2 -8 q -3 -4 0 -8 q 3 -4 0 -8"/>
+        </g>
+
+        <!-- think : bulle de pensée (retournée par --bub-s selon le côté du regard) -->
+        <g class="bubble">
+          <circle class="bub-part b1" cx="146" cy="6" r="3.5"/>
+          <circle class="bub-part b2" cx="158" cy="-10" r="5.5"/>
+          <ellipse class="bub-part b3" cx="174" cy="-42" rx="32" ry="21"/>
+          <circle class="bdot d1" cx="162" cy="-42" r="3.5"/>
+          <circle class="bdot d2" cx="174" cy="-42" r="3.5"/>
+          <circle class="bdot d3" cx="186" cy="-42" r="3.5"/>
+        </g>
+      </svg>
+    </button>
+
+    <!-- badge d'outil (affiché seulement pendant un état d'outil). Icônes : remplaçants, utiliser celles de l'app -->
+    <div class="eye-badge">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="10" cy="10" r="6.5"/><line x1="15" y1="15" x2="21" y2="21"/>
+      </svg>
+      <span>grep</span>
+      <span class="count">×3</span> <!-- seulement si N > 1 -->
+    </div>
+
+    <!-- scène sous l'œil -->
+    <svg class="stage" data-stage data-state="{state}" viewBox="0 0 200 120"
+         style="width: {size}px; height: calc({size}px * 0.6)" aria-hidden="true">
+      <defs><clipPath id="term-{uid}"><rect x="46" y="28" width="108" height="58"/></clipPath></defs>
+
+      <!-- read / write : feuille, loupe, crayon -->
+      <g class="paper-g">
+        <path class="paper" d="M 52 10 H 136 L 150 24 V 112 H 52 Z"/>
+        <path class="fold" d="M 136 10 V 24 H 150"/>
+        <g>
+          <line class="txt" x1="64" y1="32" x2="136" y2="32"/>
+          <line class="txt" x1="64" y1="50" x2="138" y2="50"/>
+          <line class="txt" x1="64" y1="68" x2="124" y2="68"/>
+          <line class="txt" x1="64" y1="86" x2="104" y2="86"/>
+        </g>
+        <g>
+          <line class="wline" x1="64" y1="32" x2="134" y2="32" style="stroke-dasharray: 70 70; stroke-dashoffset: calc(var(--w0, 1) * 70px)"/>
+          <line class="wline" x1="64" y1="50" x2="138" y2="50" style="stroke-dasharray: 74 74; stroke-dashoffset: calc(var(--w1, 1) * 74px)"/>
+          <line class="wline" x1="64" y1="68" x2="120" y2="68" style="stroke-dasharray: 56 56; stroke-dashoffset: calc(var(--w2, 1) * 56px)"/>
+          <line class="wline" x1="64" y1="86" x2="96"  y2="86" style="stroke-dasharray: 32 32; stroke-dashoffset: calc(var(--w3, 1) * 32px)"/>
+        </g>
+        <g class="loupe-g">
+          <line class="handle" x1="9" y1="9" x2="19" y2="19"/>
+          <circle class="lens" cx="0" cy="0" r="12"/>
+        </g>
+        <g class="pen-g">
+          <path class="pen" d="M 0 0 L 3 -9 L 23 -29 L 29 -23 L 9 -3 Z"/>
+          <path class="pen" d="M 19 -33 L 25 -39 L 33 -31 L 27 -25"/>
+          <path class="pen-tip" d="M 0 0 L 1.6 -4.6 L 4.6 -1.6 Z"/>
+        </g>
+      </g>
+
+      <!-- shell : terminal (motif de 3 longueurs répété pour que la boucle de défilement soit invisible) -->
+      <g class="prop p-term">
+        <rect class="ln bgf" x="44" y="12" width="112" height="96" rx="6"/>
+        <line class="ln" x1="44" y1="26" x2="156" y2="26"/>
+        <circle class="fillc" cx="53" cy="19" r="2"/>
+        <circle class="fillc" cx="61" cy="19" r="2"/>
+        <circle class="fillc" cx="69" cy="19" r="2"/>
+        <g clip-path="url(#term-{uid})"><g class="t-scroll">
+          <!-- 9 lignes, y = 40 + 18i, x2 = [140, 118, 130] répété -->
+          <path class="ln mut" d="M 52 36 l 4 4 l -4 4"/><line class="ln mut" x1="62" y1="40" x2="140" y2="40"/>
+          <path class="ln mut" d="M 52 54 l 4 4 l -4 4"/><line class="ln mut" x1="62" y1="58" x2="118" y2="58"/>
+          <path class="ln mut" d="M 52 72 l 4 4 l -4 4"/><line class="ln mut" x1="62" y1="76" x2="130" y2="76"/>
+          <path class="ln mut" d="M 52 90 l 4 4 l -4 4"/><line class="ln mut" x1="62" y1="94" x2="140" y2="94"/>
+          <path class="ln mut" d="M 52 108 l 4 4 l -4 4"/><line class="ln mut" x1="62" y1="112" x2="118" y2="112"/>
+          <path class="ln mut" d="M 52 126 l 4 4 l -4 4"/><line class="ln mut" x1="62" y1="130" x2="130" y2="130"/>
+          <path class="ln mut" d="M 52 144 l 4 4 l -4 4"/><line class="ln mut" x1="62" y1="148" x2="140" y2="148"/>
+          <path class="ln mut" d="M 52 162 l 4 4 l -4 4"/><line class="ln mut" x1="62" y1="166" x2="118" y2="166"/>
+          <path class="ln mut" d="M 52 180 l 4 4 l -4 4"/><line class="ln mut" x1="62" y1="184" x2="130" y2="184"/>
+        </g></g>
+        <path class="ln" d="M 52 94 l 4 4 l -4 4"/>
+        <rect class="t-cur" x="62" y="93" width="7" height="10"/>
+      </g>
+
+      <!-- generic : pièce de puzzle -->
+      <g class="prop p-puzzle"><g class="pz-pos"><g class="pz">
+        <path class="ln bgf" d="M -12 -12 H -3 A 4 4 0 1 1 3 -12 H 12 V -3 A 4 4 0 1 1 12 3 V 12 H -12 Z"/>
+      </g></g></g>
+
+      <!-- delegate : mini-œil -->
+      <g class="prop p-mini"><g class="mini-pos">
+        <line class="ln" x1="0" y1="-25" x2="0" y2="-30" transform="rotate(-32)"/>
+        <line class="ln" x1="0" y1="-25" x2="0" y2="-30"/>
+        <line class="ln" x1="0" y1="-25" x2="0" y2="-30" transform="rotate(32)"/>
+        <circle class="ln bgf" cx="0" cy="0" r="20"/>
+        <g class="mini-look"><circle class="mini-pup" cx="0" cy="0" r="7"/></g>
+      </g></g>
+
+      <!-- web : globe -->
+      <g class="prop p-globe">
+        <circle class="ln bgf" cx="100" cy="58" r="32"/>
+        <line class="ln" x1="68" y1="58" x2="132" y2="58"/>
+        <path class="ln" d="M 73 42 Q 100 48 127 42"/>
+        <path class="ln" d="M 73 74 Q 100 80 127 74"/>
+        <ellipse class="ln g-mer" cx="100" cy="58" rx="32" ry="32"/>
+        <ellipse class="ln g-mer m2" cx="100" cy="58" rx="32" ry="32"/>
+      </g>
+
+      <!-- plan : checklist -->
+      <g class="prop p-plan">
+        <rect class="ln bgf" x="48" y="8" width="104" height="104" rx="6"/>
+        <rect class="ln" x="58" y="19" width="14" height="14" rx="3"/><line class="ln mut" x1="82" y1="26" x2="138" y2="26"/>
+        <rect class="ln" x="58" y="41" width="14" height="14" rx="3"/><line class="ln mut" x1="82" y1="48" x2="124" y2="48"/>
+        <rect class="ln" x="58" y="63" width="14" height="14" rx="3"/><line class="ln mut" x1="82" y1="70" x2="132" y2="70"/>
+        <rect class="ln" x="58" y="85" width="14" height="14" rx="3"/><line class="ln mut" x1="82" y1="92" x2="110" y2="92"/>
+        <path class="ln" d="M 61 26 L 64.5 29.5 L 70 22.5" style="stroke-dasharray: 14 14; stroke-dashoffset: calc((1 - var(--c0, 0)) * 14px)"/>
+        <path class="ln" d="M 61 48 L 64.5 51.5 L 70 44.5" style="stroke-dasharray: 14 14; stroke-dashoffset: calc((1 - var(--c1, 0)) * 14px)"/>
+        <path class="ln" d="M 61 70 L 64.5 73.5 L 70 66.5" style="stroke-dasharray: 14 14; stroke-dashoffset: calc((1 - var(--c2, 0)) * 14px)"/>
+        <path class="ln" d="M 61 92 L 64.5 95.5 L 70 88.5" style="stroke-dasharray: 14 14; stroke-dashoffset: calc((1 - var(--c3, 0)) * 14px)"/>
+      </g>
+
+      <!-- respond : bulle de dialogue -->
+      <g class="prop p-speech">
+        <rect class="ln bgf" x="48" y="18" width="104" height="64" rx="14"/>
+        <path class="bgf" d="M 91 20.5 L 100 6 L 109 20.5 Z"/>
+        <path class="ln" d="M 92 19 L 100 6 L 108 19"/>
+        <line class="ln sp sp1" x1="64" y1="38" x2="136" y2="38"/>
+        <line class="ln sp sp2" x1="64" y1="52" x2="128" y2="52"/>
+        <line class="ln sp sp3" x1="64" y1="66" x2="106" y2="66"/>
+      </g>
+
+      <!-- attention : « ? » suspendu -->
+      <g class="prop p-ask"><g class="ask-swing">
+        <line class="ln" x1="100" y1="2" x2="100" y2="22"/>
+        <circle class="ln bgf" cx="100" cy="42" r="20"/>
+        <path class="ln" d="M 93 36 Q 93 28 100 28 Q 107 28 107 35 Q 107 40 100 43 V 47"/>
+        <circle class="fillc" cx="100" cy="54" r="2.4"/>
+      </g></g>
+
+      <!-- sleep : oreiller -->
+      <g class="prop p-pillow"><g class="pill">
+        <path class="ln bgf" d="M 44 26 Q 46 10 66 14 Q 100 6 134 14 Q 154 10 156 26 Q 162 44 156 62 Q 154 78 134 74 Q 100 82 66 74 Q 46 78 44 62 Q 38 44 44 26 Z"/>
+        <path class="ln mut" d="M 60 24 Q 64 30 60 34"/>
+        <path class="ln mut" d="M 140 24 Q 136 30 140 34"/>
+      </g></g>
+    </svg>
+  </div>
+
+  <!-- barre d'état du panneau -->
+  <div class="eye-status" aria-live="polite"><span class="dot"></span><span>Au repos</span></div>
+</div>

@@ -119,10 +119,9 @@ function DebugLog(props: { readonly session: MountedSession; readonly log: Event
 
     return list.slice(-100).reverse()
   })
-  const types = createMemo(() =>
-    Object.entries(props.log.counts).sort(([a], [b]) => a.localeCompare(b)),
-  )
-  const dump = () => props.log.serialize({ app: ctx.app.version, platform: ctx.app.platform, session: props.session.id })
+  const types = createMemo(() => Object.entries(props.log.counts).sort(([a], [b]) => a.localeCompare(b)))
+  const dump = () =>
+    props.log.serialize({ app: ctx.app.version, platform: ctx.app.platform, session: props.session.id })
 
   return (
     <details class="opencode-eye-debug" open={enabled()}>
@@ -145,7 +144,9 @@ function DebugLog(props: { readonly session: MountedSession; readonly log: Event
             variant="ghost"
             icon="copy"
             onClick={() =>
-              void ctx.system.copy(dump()).then(() => ctx.toast.show({ variant: "success", title: ctx.t("debug.copied") }))
+              void ctx.system
+                .copy(dump())
+                .then(() => ctx.toast.show({ variant: "success", title: ctx.t("debug.copied") }))
             }
           >
             {ctx.t("debug.copy")}

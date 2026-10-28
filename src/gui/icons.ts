@@ -87,4 +87,3 @@ export function toolIcon(name: string, custom: McpIcons = {}): IconName {
   if (key.includes(".") || key.includes("_")) return "mcp"
   return KINDS[classifyTool(key)]
 }
-

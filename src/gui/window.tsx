@@ -220,23 +220,20 @@ export const setup: Plugin.Setup<typeof definition> = (ctx) => {
     render: (props) => <EyePanel session={props.session} eyes={eyes} log={log} />,
   })
 
-  ctx.add(
-    Command,
-    (): Command => ({
-      id: "toggle",
-      title: ctx.t("command.toggle"),
-      group: ctx.t("command.group"),
-      keywords: "eye oeil œil",
-      section: "session",
-      bind: "mod+alt+e",
-      enabled: !!ctx.sessions.current(),
-      run: () => {
-        const session = ctx.sessions.current()
+  ctx.add(Command, (): Command => ({
+    id: "toggle",
+    title: ctx.t("command.toggle"),
+    group: ctx.t("command.group"),
+    keywords: "eye oeil œil",
+    section: "session",
+    bind: "mod+alt+e",
+    enabled: !!ctx.sessions.current(),
+    run: () => {
+      const session = ctx.sessions.current()
 
-        if (session) ctx.layout.toggle(key, session)
-      },
-    }),
-  )
+      if (session) ctx.layout.toggle(key, session)
+    },
+  }))
 
   ctx.add(SettingsPage, {
     id: ctx.id,
@@ -250,19 +247,16 @@ export const setup: Plugin.Setup<typeof definition> = (ctx) => {
     render: (input) => <EyeSettings target={input.target} />,
   })
 
-  ctx.add(
-    Command,
-    (): Command => ({
-      id: "debug",
-      title: ctx.t("command.debug"),
-      group: ctx.t("command.group"),
-      keywords: "eye oeil œil debug log events",
-      run: () =>
-        ctx.stores.debug.update((draft) => {
-          draft.enabled = !draft.enabled
-        }),
-    }),
-  )
+  ctx.add(Command, (): Command => ({
+    id: "debug",
+    title: ctx.t("command.debug"),
+    group: ctx.t("command.group"),
+    keywords: "eye oeil œil debug log events",
+    run: () =>
+      ctx.stores.debug.update((draft) => {
+        draft.enabled = !draft.enabled
+      }),
+  }))
 
   ctx.add(MenuItem, (): MenuItem => {
     const session = ctx.sessions.current()

@@ -80,7 +80,10 @@
   border-radius: 4px;
   color: var(--contour);
   background: var(--bg);
-  font: 600 11px/1 ui-monospace, "JetBrains Mono", monospace;
+  font:
+    600 11px/1 ui-monospace,
+    "JetBrains Mono",
+    monospace;
   white-space: nowrap;
   animation: opencode-eye-pop 0.45s var(--ease-pop) both;
   pointer-events: none;
@@ -104,7 +107,9 @@
   align-items: center;
   gap: 8px;
   max-width: 100%;
-  font: 12px/1.3 ui-monospace, monospace;
+  font:
+    12px/1.3 ui-monospace,
+    monospace;
   color: var(--muted);
   text-align: center;
   overflow-wrap: anywhere;
@@ -282,7 +287,10 @@
 
 .opencode-eye-root .eye .zz {
   fill: var(--contour);
-  font: 600 20px ui-monospace, "JetBrains Mono", monospace;
+  font:
+    600 20px ui-monospace,
+    "JetBrains Mono",
+    monospace;
   opacity: 0;
   transform-box: fill-box;
   transform-origin: center;

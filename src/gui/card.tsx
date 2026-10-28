@@ -21,7 +21,12 @@ export function DetailsCard(props: { readonly view: EyeView; readonly onClose: (
   onMount(() => card?.focus())
 
   return (
-    <section ref={card} class="opencode-eye-card" role="dialog" aria-labelledby={title} tabIndex={-1}
+    <section
+      ref={card}
+      class="opencode-eye-card"
+      role="dialog"
+      aria-labelledby={title}
+      tabIndex={-1}
       onKeyDown={(event) => {
         if (event.key !== "Escape") return
         event.stopPropagation()
@@ -30,11 +35,7 @@ export function DetailsCard(props: { readonly view: EyeView; readonly onClose: (
     >
       <h2 id={title}>{ctx.t("card.title")}</h2>
       <span class="opencode-eye-card__close">
-        <ctx.ui.IconButton
-          icon="close-small"
-          label={ctx.t("card.close")}
-          onClick={() => props.onClose()}
-        />
+        <ctx.ui.IconButton icon="close-small" label={ctx.t("card.close")} onClick={() => props.onClose()} />
       </span>
       <dl>
         <dt>{ctx.t("card.tool")}</dt>

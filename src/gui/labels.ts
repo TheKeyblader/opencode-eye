@@ -35,7 +35,8 @@ export function announced(state: EyeState): boolean {
 export function statusDot(state: EyeState): "" | "on" | "err" | "att" {
   if (state === "attention") return "att"
   if (state === "error-flash" || state === "error" || state === "error-spiral") return "err"
-  if (state === "idle" || state === "sleep" || state === "happy" || state === "vexed" || state === "surprised") return ""
+  if (state === "idle" || state === "sleep" || state === "happy" || state === "vexed" || state === "surprised")
+    return ""
   return "on"
 }
 

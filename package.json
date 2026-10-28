@@ -10,7 +10,8 @@
     "build": "vite build",
     "dev": "vite build --watch",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "preview": "vite --config vite.preview.config.ts"
   },
   "dependencies": {
     "@opencode/plugin": "2.2.0"

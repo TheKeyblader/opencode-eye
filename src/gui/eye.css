@@ -1,15 +1,64 @@
 .opencode-eye {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
   gap: 12px;
   height: 100%;
+  min-height: 0;
   padding: 16px;
+  overflow: auto;
 }
 
 .opencode-eye__empty {
   margin: 0;
   opacity: 0.6;
   font-size: 13px;
+  text-align: center;
+}
+
+.opencode-eye-debug {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.opencode-eye-debug__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.opencode-eye-debug__types ul,
+.opencode-eye-debug__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.opencode-eye-debug__list li {
+  padding: 2px 0;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.opencode-eye-debug__list summary {
+  cursor: pointer;
+}
+
+.opencode-eye-debug__list pre {
+  margin: 4px 0;
+  max-height: 240px;
+  overflow: auto;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.opencode-eye-debug__seq {
+  opacity: 0.5;
+}
+
+.opencode-eye-debug__other {
+  opacity: 0.5;
 }

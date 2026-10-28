@@ -1,4 +1,6 @@
-import { Command, MenuItem, Panel, Style, type PanelTab, type Plugin } from "@opencode/plugin/gui"
+import { onCleanup } from "solid-js"
+import { Command, createKeyed, MenuItem, Panel, Style, type PanelTab, type Plugin } from "@opencode/plugin/gui"
+import { createEventLog } from "./debug"
 import type { definition } from "./definition"
 import { EyePanel } from "./panel"
 import css from "./eye.css?inline"
@@ -7,8 +9,23 @@ export const TAB = "eye"
 
 export const setup: Plugin.Setup<typeof definition> = (ctx) => {
   const key = `${ctx.id}:${TAB}`
+  const log = createEventLog()
 
   ctx.add(Style, css)
+
+  // Debug: every event of the app's own server, only while the log is on. A restarted server gives a new
+  // `data`, so the subscription follows it; turning the log off ends it.
+  createKeyed(
+    () => ctx.stores.debug.value.enabled && ctx.servers.get("sidecar")?.data,
+    (data) =>
+      onCleanup(
+        data.listen((event) => {
+          const entry = log.record(event.name, event.details)
+
+          if (entry) console.debug(`[${ctx.id}] #${entry.seq} ${event.name}`, event.details)
+        }),
+      ),
+  )
 
   // Same object on every `list` call so the host never remounts the trigger.
   const tab: PanelTab = {
@@ -32,8 +49,22 @@ export const setup: Plugin.Setup<typeof definition> = (ctx) => {
     },
     list: (input) => (input.open.includes(TAB) ? [tab] : []),
     // props.session is a getter that follows session switches: pass it through, never destructure.
-    render: (props) => <EyePanel session={props.session} />,
+    render: (props) => <EyePanel session={props.session} log={log} />,
   })
+
+  ctx.add(
+    Command,
+    (): Command => ({
+      id: "debug",
+      title: ctx.t("command.debug"),
+      group: ctx.t("command.group"),
+      keywords: "eye oeil œil debug log events",
+      run: () =>
+        ctx.stores.debug.update((draft) => {
+          draft.enabled = !draft.enabled
+        }),
+    }),
+  )
 
   ctx.add(
     Command,

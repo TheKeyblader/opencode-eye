@@ -212,7 +212,10 @@ function McpIcons() {
 
       return source && location ? { source, location } : undefined
     },
-    ({ source, location }) => void source.location.mcp.server.sync(location).catch(() => undefined),
+    ({ source, location }) =>
+      void source.location.mcp.server
+        .sync(location)
+        .catch((error: unknown) => console.warn(`[${ctx.id}] could not load the MCP servers`, error)),
     { equals: (a, b) => a.source === b.source && a.location.directory === b.location.directory },
   )
 

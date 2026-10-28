@@ -43,6 +43,8 @@ export const setup: Plugin.Setup<typeof definition> = (ctx) => {
 
   const key = `${ctx.id}:${TAB}`
   const log = createEventLog()
+  // The eye still works without what failed (the context usage, a seed), but the failure must show in the console.
+  const warn = (what: string) => (error: unknown) => console.warn(`[${ctx.id}] ${what}`, error)
 
   ctx.add(Style, css)
 
@@ -82,7 +84,7 @@ export const setup: Plugin.Setup<typeof definition> = (ctx) => {
 
       if (!models) {
         // The models load on demand: the next step will find them.
-        void data.location.model.sync(location).catch(() => undefined)
+        void data.location.model.sync(location).catch(warn("could not load the models"))
         return
       }
       const info = models.find(
@@ -90,8 +92,9 @@ export const setup: Plugin.Setup<typeof definition> = (ctx) => {
       )
 
       if (info?.limit.context) dispatch(sessionID, [{ type: "context.usage", ratio: tokens / info.limit.context }])
-    } catch {
+    } catch (error) {
       // A session or a message the server data does not hold: no usage, no tired eye.
+      warn("could not read the context usage")(error)
     }
   }
 
@@ -163,8 +166,9 @@ export const setup: Plugin.Setup<typeof definition> = (ctx) => {
             forms: data.session.form.list(sessionID) ?? [],
           }),
         )
-      } catch {
+      } catch (error) {
         // A session the server data does not hold yet: the events will tell.
+        warn(`could not read session ${sessionID}`)(error)
         return
       }
 
@@ -174,7 +178,13 @@ export const setup: Plugin.Setup<typeof definition> = (ctx) => {
 
     apply()
     // Pending approvals and questions load on demand: look again once they have.
-    void Promise.allSettled([data.session.permission.sync(sessionID), data.session.form.sync(sessionID)]).then(apply)
+    void Promise.allSettled([data.session.permission.sync(sessionID), data.session.form.sync(sessionID)]).then(
+      (results) => {
+        for (const result of results)
+          if (result.status === "rejected") warn("could not load the pending approvals or questions")(result.reason)
+        apply()
+      },
+    )
   }
 
   const eyes: Eyes = {

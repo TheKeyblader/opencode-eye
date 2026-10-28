@@ -1,3 +1,4 @@
+/** The English copy; its keys are the plugin's i18n keys. */
 export const en = {
   "panel.title": "Eye",
   "eye.label": "Show the eye's details",
@@ -108,6 +109,7 @@ export const en = {
   "debug.types": "Types received",
 }
 
+/** The French copy: every English key, which the type checks. */
 export const fr: Record<keyof typeof en, string> = {
   "panel.title": "Œil",
   "eye.label": "Afficher les détails de l'œil",

@@ -15,6 +15,7 @@ export const ENTRIES = ["size", "look", "colors", "motion", "states", "mcp", "de
 // The preview at the automatic size, as in a panel of this width.
 const PREVIEW_ROOM = 280
 
+/** The eye's settings page. `target` is the search entry to reveal. */
 export function EyeSettings(props: { readonly target?: string }) {
   const ctx = usePlugin<typeof definition>()
   const ui = ctx.ui

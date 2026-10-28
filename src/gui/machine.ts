@@ -13,6 +13,7 @@
 
 export type ToolKind = "read" | "write" | "shell" | "delegate" | "web" | "plan" | "generic"
 
+/** What the eye shows: the value of `data-state`. */
 export type EyeState =
   | "idle"
   | "think"
@@ -49,6 +50,7 @@ export const STATES: readonly EyeState[] = [
   "surprised",
 ]
 
+/** What the machine understands: server events once adapted (see adapt.ts), and a few client-side ones. */
 export type EyeEvent =
   | { type: "execution.started" }
   | { type: "step.started" }
@@ -77,20 +79,28 @@ export type EyeEvent =
   // 0…1, when known.
   | { type: "context.usage"; ratio: number }
 
+/** A tool in flight. */
 export interface ActiveTool {
+  /** The call's id, from the server. */
   readonly callId: string
   /** The tool's name, or the inner tool's for a wrapper such as `execute`. Empty when the eye missed its start. */
   readonly name: string
+  /** How the eye shows it: see `classifyTool`. */
   readonly kind: ToolKind
   readonly since: number
 }
 
+/** The modifiers time adds on top of a state. */
 export interface Mods {
+  /** The tool shown has been running for more than `impatientMs`. */
   readonly impatient: boolean
+  /** At rest with no event for more than `boredMs`. */
   readonly bored: boolean
+  /** The context is fuller than `tiredRatio`. */
   readonly tired: boolean
 }
 
+/** A change of what the eye shows. */
 export interface Transition {
   readonly at: number
   readonly state: EyeState
@@ -99,6 +109,7 @@ export interface Transition {
   readonly event: string
 }
 
+/** What the eye shows at a given time: `tick`'s answer. */
 export interface EyeView {
   readonly state: EyeState
   /** The tool the badge shows. */
@@ -114,12 +125,16 @@ export interface EyeView {
 
 /** What the server already knows about a session (see seed.ts). */
 export interface Snapshot {
+  /** The session runs: the eye thinks unless a tool shows. */
   readonly running: boolean
+  /** A compaction is in progress. */
   readonly compacting: boolean
   readonly tools: readonly { readonly id: string; readonly name: string }[]
+  /** Pending approvals and questions, by id. */
   readonly asks: readonly { readonly id: string }[]
 }
 
+/** The machine's timings and thresholds, in ms and as a ratio: `DEFAULT_OPTIONS` holds the spec's. */
 export interface EyeOptions {
   readonly minDwellMs: number
   readonly thinkDelayMs: number
@@ -133,6 +148,7 @@ export interface EyeOptions {
   readonly tiredRatio: number
 }
 
+/** The timings of the spec. */
 export const DEFAULT_OPTIONS: EyeOptions = {
   // The least time a state shows.
   minDwellMs: 400,
@@ -180,6 +196,7 @@ const TOOL_KINDS: Readonly<Record<string, ToolKind>> = {
   todoread: "plan",
 }
 
+/** How the eye shows a tool, by its name, whatever its case: anything unknown is `generic`. */
 export function classifyTool(name: string): ToolKind {
   return TOOL_KINDS[name.toLowerCase()] ?? "generic"
 }
@@ -188,8 +205,11 @@ export function classifyTool(name: string): ToolKind {
 const TOOL_PRIORITY: readonly ToolKind[] = ["write", "shell", "delegate", "read", "web", "plan", "generic"]
 const TOOL_STATES: ReadonlySet<EyeState> = new Set(TOOL_PRIORITY)
 
+/** The states that show a tool. */
 export const isToolState = (state: EyeState): state is ToolKind => TOOL_STATES.has(state)
+/** The short reactions: they last a fixed time. */
 export const isReaction = (state: EyeState) => state === "happy" || state === "vexed" || state === "surprised"
+/** The error states. */
 export const isError = (state: EyeState) => state === "error-flash" || state === "error" || state === "error-spiral"
 
 type ErrorInfo =
@@ -199,6 +219,7 @@ type ErrorInfo =
 
 type Reaction = "happy" | "vexed" | "surprised"
 
+/** One session's eye: events in, what the eye shows out. Not reactive: hand its views to a signal. */
 export class EyeStateMachine {
   private readonly o: EyeOptions
 
@@ -229,6 +250,7 @@ export class EyeStateMachine {
     this.shownSince = now - this.o.minDwellMs
   }
 
+  /** Applies an event at `now`, then ticks. */
   dispatch(event: EyeEvent, now = Date.now()): EyeView {
     this.apply(event, now)
     this.lastEventName = event.type

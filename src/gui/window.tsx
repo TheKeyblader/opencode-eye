@@ -19,6 +19,7 @@ import { ENTRIES, EyeSettings } from "./settings"
 import { seed } from "./seed"
 import css from "./eye.css?inline"
 
+/** The panel tab's id. */
 export const TAB = "eye"
 
 /** Every session's eye, as the panel reads it. */
@@ -33,6 +34,10 @@ export interface Eyes {
 
 const RESTING: EyeView = { state: "idle", tool: null, count: 0, mods: NO_MODS, since: 0, history: [] }
 
+/**
+ * The window setup: one state machine per session fed by the app's server, and the panel, settings page, commands and
+ * menu item that show the eye.
+ */
 export const setup: Plugin.Setup<typeof definition> = (ctx) => {
   type ServerData = NonNullable<ReturnType<typeof ctx.servers.get>>["data"]
 

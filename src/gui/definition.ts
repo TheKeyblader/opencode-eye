@@ -3,6 +3,7 @@ import { Plugin, Store } from "@opencode/plugin/gui"
 import { en, fr } from "./i18n"
 import { SIZE, STROKES } from "./palette"
 
+/** What the plugin declares before any setup runs: its global stores and its English and French copy. */
 export const definition = Plugin.define({
   stores: {
     debug: Store.global(Schema.Struct({ enabled: Schema.Boolean }), { enabled: false }),

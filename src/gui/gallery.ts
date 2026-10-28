@@ -22,6 +22,7 @@ const TOOLS: Partial<Record<EyeState, string>> = {
   plan: "todowrite",
 }
 
+/** Every modifier off. */
 export const NO_MODS: Mods = { impatient: false, bored: false, tired: false }
 
 /** The 18 states, then the 3 modifiers. */
@@ -32,4 +33,5 @@ export const GALLERY: readonly GalleryItem[] = [
   { key: "tired", state: "think", mod: "tired" },
 ]
 
+/** The modifiers a gallery item shows: its own only. */
 export const modsOf = (item: GalleryItem): Mods => (item.mod ? { ...NO_MODS, [item.mod]: true } : NO_MODS)

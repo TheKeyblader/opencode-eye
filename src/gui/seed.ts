@@ -13,6 +13,7 @@ export interface SeedSource {
   readonly forms: readonly { readonly id: string; readonly title: string }[]
 }
 
+/** What an eye joining mid-run starts from: a `Snapshot` for the machine, and the latest context usage. */
 export interface Seed {
   readonly sessionID: string
   readonly running: boolean
@@ -26,6 +27,7 @@ export interface Seed {
 // A tool part streams its input, then runs; `completed` and `error` are done.
 const IN_FLIGHT = new Set(["streaming", "running"])
 
+/** What the server's data says about a session: whether it runs, its tools in flight, what waits for the user. */
 export function seed(sessionID: string, source: SeedSource): Seed {
   const running = source.status === "running"
   const tools: { id: string; name: string }[] = []

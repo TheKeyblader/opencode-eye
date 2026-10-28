@@ -16,6 +16,7 @@ const TICK_MS = 100
 // The click blinks twice, then the card opens.
 const OPEN_MS = 380
 
+/** The eye's panel tab for one session: the eye, its status, its details card and the debug log. */
 export function EyePanel(props: { readonly session: MountedSession; readonly eyes: Eyes; readonly log: EventLog }) {
   const ctx = usePlugin<typeof definition>()
   const panel = usePanel()

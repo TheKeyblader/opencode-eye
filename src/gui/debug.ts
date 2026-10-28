@@ -42,8 +42,13 @@ export function sessionOf(details: unknown): string | undefined {
   return typeof id === "string" ? id : undefined
 }
 
+/** The debug log of server events: see `createEventLog`. */
 export type EventLog = ReturnType<typeof createEventLog>
 
+/**
+ * A reactive log of the server's events, for the debug panel: the latest 1000, with payloads trimmed, and a count per
+ * event name. Streaming deltas only keep their first few samples. Call it under an owner.
+ */
 export function createEventLog() {
   const [state, setState] = createStore({
     seq: 0,
@@ -81,6 +86,7 @@ export function createEventLog() {
 
       return entry
     },
+    /** Forgets every entry and count. */
     clear() {
       setState({ seq: 0, started: 0, entries: [], counts: {} })
     },

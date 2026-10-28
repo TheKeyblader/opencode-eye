@@ -53,7 +53,9 @@ describe("adapt", () => {
     expect(adapt({ type: "form.created", data: { form: { id: "frm_1", sessionID: "ses_a" } } })).toEqual([
       { type: "form.created", id: "frm_1" },
     ])
-    expect(adapt({ type: "form.replied", data: data({ id: "frm_1" }) })).toEqual([{ type: "form.replied", id: "frm_1" }])
+    expect(adapt({ type: "form.replied", data: data({ id: "frm_1" }) })).toEqual([
+      { type: "form.replied", id: "frm_1" },
+    ])
   })
 
   test("ignores what the eye does not show", () => {

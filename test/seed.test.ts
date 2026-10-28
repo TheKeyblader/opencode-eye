@@ -84,7 +84,10 @@ describe("a seeded eye", () => {
   test("then the events take over", () => {
     const machine = new EyeStateMachine({}, 0)
 
-    machine.seed(seed("ses_a", { ...IDLE, status: "running", messages: [assistant(tool("c1", "shell", "running"))] }), 5)
+    machine.seed(
+      seed("ses_a", { ...IDLE, status: "running", messages: [assistant(tool("c1", "shell", "running"))] }),
+      5,
+    )
     machine.dispatch({ type: "tool.success", callId: "c1" }, 1000)
     expect(machine.tick(1300).state).toBe("think")
     expect(machine.dispatch({ type: "execution.succeeded" }, 2000).state).toBe("happy")

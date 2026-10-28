@@ -20,6 +20,10 @@ describe("GALLERY", () => {
 
   test("the tool states show a tool, and a modifier turns itself on", () => {
     expect(GALLERY.find((item) => item.key === "read")?.tool).toBe("grep")
-    expect(modsOf(GALLERY.find((item) => item.key === "tired")!)).toEqual({ impatient: false, bored: false, tired: true })
+    expect(modsOf(GALLERY.find((item) => item.key === "tired")!)).toEqual({
+      impatient: false,
+      bored: false,
+      tired: true,
+    })
   })
 })

@@ -220,7 +220,7 @@ function McpIcons() {
     const rows = new Map(listed.map((server) => [server.name, server.title ?? server.name]))
 
     for (const name of Object.keys(icons())) if (!rows.has(name)) rows.set(name, name)
-    return [...rows].sort(([a], [b]) => a.localeCompare(b)).map(([name, title]) => ({ name, title }))
+    return [...rows].toSorted(([a], [b]) => a.localeCompare(b)).map(([name, title]) => ({ name, title }))
   })
 
   const choose = async (name: string) => {

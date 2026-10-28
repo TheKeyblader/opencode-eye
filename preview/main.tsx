@@ -90,9 +90,7 @@ function App() {
       </nav>
       <Show
         when={params.has("grid")}
-        fallback={
-          <div style={{ display: "grid", "place-items": "center", "padding-top": "40px" }}>{eye(item())}</div>
-        }
+        fallback={<div style={{ display: "grid", "place-items": "center", "padding-top": "40px" }}>{eye(item())}</div>}
       >
         <div style={{ display: "grid", "grid-template-columns": "repeat(7, 1fr)", gap: "28px 8px" }}>
           <For each={GALLERY}>

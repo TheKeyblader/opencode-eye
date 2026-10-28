@@ -55,7 +55,6 @@ describe("MCP icons the user chose", () => {
   test("an icon the app does not have is ignored", () => {
     expect(toolIcon("broken.call", custom)).toBe("mcp")
   })
-
 })
 
 describe("serverOf", () => {

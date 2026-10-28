@@ -1,334 +1,334 @@
-# L'œil : spécification d'implémentation
+# The eye: implementation spec
 
-Plugin OpenCode Desktop : un onglet du panneau latéral de la session affiche un œil animé qui reflète en continu ce que fait l'agent. Le ton est drôle et expressif : c'est un compagnon, pas un indicateur de chargement.
+An OpenCode Desktop plugin: a tab of the session's side panel shows an animated eye that reflects, at all times, what the agent is doing. The tone is funny and expressive: it is a companion, not a loading indicator.
 
-Ce document s'adresse à l'agent qui implémente le plugin. **Les fichiers de `reference/` font foi** : ils contiennent le dessin, le CSS et le moteur d'animation validés en maquette. Le travail consiste à les porter en composant Solid et à les brancher sur les événements serveur, pas à les redessiner.
+This document is for the agent that implements the plugin. **The files in `reference/` are authoritative**: they hold the drawing, the CSS and the animation engine validated in the mock-up. The work is to port them to a Solid component and wire them to the server's events, not to redraw them. Their user-facing strings are the French copy; the plugin carries English and French.
 
-| Fichier                   | Rôle                                                                                                               |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `reference/eye.html`      | Markup SVG de l'œil, de la scène sous l'œil et du badge d'outil                                                    |
-| `reference/eye.css`       | Tokens (thèmes clair et sombre), états, accessoires, keyframes, mouvement réduit                                   |
-| `reference/eye-engine.js` | Moteur d'animation sans dépendance : boucle rAF, ressorts, regard, clignements. Écrit uniquement des variables CSS |
-| `reference/eye-state.ts`  | Machine d'état pure : événements serveur → état visible, libellé, outil, modificateurs                             |
+| File                      | Role                                                                                         |
+| ------------------------- | -------------------------------------------------------------------------------------------- |
+| `reference/eye.html`      | SVG markup of the eye, of the scene under the eye and of the tool badge                      |
+| `reference/eye.css`       | Tokens (light and dark themes), states, props, keyframes, reduced motion                     |
+| `reference/eye-engine.js` | Dependency-free animation engine: rAF loop, springs, gaze, blinks. Writes CSS variables only |
+| `reference/eye-state.ts`  | Pure state machine: server events → visible state, label, tool, modifiers                    |
 
-L'intégration à l'API de plugin OpenCode Desktop (enregistrement de l'onglet, abonnement aux événements, forme exacte des payloads) **n'est pas couverte ici**. Utilise l'API réelle et adapte les payloads au type `EyeEvent` de `eye-state.ts`.
+The integration with the OpenCode Desktop plugin API (registering the tab, subscribing to events, the exact shape of the payloads) **is not covered here**. Use the real API and adapt the payloads to the `EyeEvent` type of `eye-state.ts`.
 
 ---
 
 ## 1. Architecture
 
 ```
-événements serveur ──► EyeStateMachine (eye-state.ts) ──► { state, tool, label, mods, count }
-                                                              │
-                                     composant Solid <Eye/> ◄─┘
-                                       ├─ data-state, data-tool, data-line… sur les SVG
-                                       └─ EyeEngine (eye-engine.js) : rAF → variables CSS
+server events ──► EyeStateMachine (eye-state.ts) ──► { state, tool, label, mods, count }
+                                                         │
+                                Solid component <Eye/> ◄─┘
+                                  ├─ data-state, data-tool, data-line… on the SVGs
+                                  └─ EyeEngine (eye-engine.js): rAF → CSS variables
 ```
 
-Règles d'architecture :
+Architecture rules:
 
-- **Un seul attribut pilote l'état** : `data-state` sur le SVG de l'œil et sur le SVG de la scène, avec la même valeur. Tout le CSS des états en dépend.
-- **Le moteur n'écrit que des variables CSS** (`--look-x`, `--look-y`, `--lid`, `--pupil`, etc.) et deux attributs (`data-line`). Il ne crée ni ne supprime jamais de nœud DOM.
-- **Solid gère les attributs déclaratifs** : `data-state`, `data-tool`, `data-theme`, `data-brow`, `data-reduced`, `data-impatient`, `data-tired`, le badge et la carte de détails.
-- **Le moteur lit l'état à chaque frame** via un getter (`getInput()`). Il n'a pas besoin d'être recréé quand l'état change.
-- **Les identifiants SVG** (`clipPath`) doivent être uniques par instance : utilise `createUniqueId()`.
-- La boucle rAF tourne tant que l'onglet est monté. Mets-la en pause quand l'onglet est masqué (`document.hidden` ou visibilité du panneau) pour ne pas consommer de CPU pour rien.
+- **One attribute drives the state**: `data-state` on the eye's SVG and on the scene's SVG, with the same value. All the state CSS depends on it.
+- **The engine only writes CSS variables** (`--look-x`, `--look-y`, `--lid`, `--pupil`, etc.) and two attributes (`data-line`). It never creates or removes a DOM node.
+- **Solid handles the declarative attributes**: `data-state`, `data-tool`, `data-theme`, `data-brow`, `data-reduced`, `data-impatient`, `data-tired`, the badge and the details card.
+- **The engine reads the state on every frame** through a getter (`getInput()`). It does not need to be recreated when the state changes.
+- **SVG ids** (`clipPath`) must be unique per instance: use `createUniqueId()`.
+- The rAF loop runs while the tab is mounted. Pause it while the tab is hidden (`document.hidden` or the panel's visibility) so it does not burn CPU for nothing.
 
-### Valeurs d'état (`data-state`)
+### State values (`data-state`)
 
-| Valeur         | Libellé affiché                                 | Famille        |
-| -------------- | ----------------------------------------------- | -------------- |
-| `idle`         | Au repos (« S'ennuie » si modificateur `bored`) | base           |
-| `think`        | Réfléchit                                       | base           |
-| `respond`      | Répond                                          | base           |
-| `read`         | Lit · `<outil>`                                 | outil          |
-| `write`        | Écrit · `<outil>`                               | outil          |
-| `shell`        | Lance une commande · `<outil>`                  | outil          |
-| `generic`      | Utilise un outil · `<outil>`                    | outil          |
-| `delegate`     | Délègue · `<outil>`                             | outil          |
-| `web`          | Cherche sur le web · `<outil>`                  | outil          |
-| `plan`         | Planifie · `<outil>`                            | outil          |
-| `attention`    | T'attend                                        | prioritaire    |
-| `sleep`        | Compacte la conversation                        | prioritaire    |
-| `error-flash`  | Quelque chose a échoué                          | erreur         |
-| `error`        | Quelque chose a échoué                          | erreur         |
-| `error-spiral` | Quelque chose a échoué                          | erreur         |
-| `happy`        | Terminé                                         | réaction brève |
-| `vexed`        | Interrompu                                      | réaction brève |
-| `surprised`    | Te revoilà                                      | réaction brève |
+| Value          | Label (English)                        | Label (French)                               | Family         |
+| -------------- | -------------------------------------- | -------------------------------------------- | -------------- |
+| `idle`         | Resting ("Bored" with the `bored` mod) | Au repos (« S'ennuie » with the `bored` mod) | base           |
+| `think`        | Thinking                               | Réfléchit                                    | base           |
+| `respond`      | Answering                              | Répond                                       | base           |
+| `read`         | Reading · `<tool>`                     | Lit · `<tool>`                               | tool           |
+| `write`        | Writing · `<tool>`                     | Écrit · `<tool>`                             | tool           |
+| `shell`        | Running a command · `<tool>`           | Lance une commande · `<tool>`                | tool           |
+| `generic`      | Using a tool · `<tool>`                | Utilise un outil · `<tool>`                  | tool           |
+| `delegate`     | Delegating · `<tool>`                  | Délègue · `<tool>`                           | tool           |
+| `web`          | Searching the web · `<tool>`           | Cherche sur le web · `<tool>`                | tool           |
+| `plan`         | Planning · `<tool>`                    | Planifie · `<tool>`                          | tool           |
+| `attention`    | Waiting for you                        | T'attend                                     | priority       |
+| `sleep`        | Compacting the conversation            | Compacte la conversation                     | priority       |
+| `error-flash`  | Something went wrong                   | Quelque chose a échoué                       | error          |
+| `error`        | Something went wrong                   | Quelque chose a échoué                       | error          |
+| `error-spiral` | Something went wrong                   | Quelque chose a échoué                       | error          |
+| `happy`        | Done                                   | Terminé                                      | short reaction |
+| `vexed`        | Interrupted                            | Interrompu                                   | short reaction |
+| `surprised`    | Welcome back                           | Te revoilà                                   | short reaction |
 
-Quand le modificateur `impatient` est actif sur un outil, le libellé prend le suffixe « · ça traîne ».
+When the `impatient` modifier is on during a tool, the label takes the suffix "· taking a while" (« · ça traîne »).
 
 ---
 
-## 2. Logique d'état
+## 2. State logic
 
-L'implémentation de référence est `reference/eye-state.ts`. Cette section en donne les règles.
+The reference implementation is `reference/eye-state.ts`. This section gives its rules.
 
-### 2.1 Priorités (de la plus forte à la plus faible)
+### 2.1 Priorities (strongest first)
 
-1. **attention** : au moins une permission ou un formulaire en attente.
-2. **sleep** : compaction en cours.
-3. **erreur** : `error-flash`, `error` ou `error-spiral`.
-4. **réaction brève** : `happy`, `vexed` ou `surprised`, tant que sa durée n'est pas écoulée.
-5. **outil** : au moins un outil en cours.
-6. **activité** : `respond` ou `think`.
+1. **attention**: at least one pending permission or form.
+2. **sleep**: a compaction in progress.
+3. **error**: `error-flash`, `error` or `error-spiral`.
+4. **short reaction**: `happy`, `vexed` or `surprised`, until its time is up.
+5. **tool**: at least one tool in flight.
+6. **activity**: `respond` or `think`.
 7. **idle**.
 
-### 2.2 Événements
+### 2.2 Events
 
-| Événement serveur                                                                          | Effet                                                                                                      |
-| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `session.execution.started`, `session.step.started`, `session.reasoning.started`           | activité → `think`. `step.started` efface aussi une erreur de type « jusqu'à l'étape suivante »            |
-| `session.text.started`                                                                     | activité → `respond`                                                                                       |
-| `session.tool.input.started`                                                               | ajoute l'outil (le nom arrive ici), classé selon 2.3                                                       |
-| `session.tool.called` sans `input.started` vu avant pour ce `callId`                       | ajoute l'outil en **générique** (l'œil a raté le début), avec son nom en libellé                           |
-| `session.tool.success`                                                                     | retire l'outil ; s'il n'en reste aucun → activité `think`                                                  |
-| `session.tool.failed`                                                                      | retire l'outil ; erreur `error-flash` pendant 1 500 ms, puis l'œil reprend ce qu'il faisait                |
-| `permission.asked` → `permission.replied`                                                  | `attention` pendant l'attente, puis retour à l'état d'avant. Si la réponse est un refus → réaction `vexed` |
-| `form.created` → `form.replied` / `form.cancelled`                                         | `attention` (question posée par l'outil question)                                                          |
-| `session.compaction.started` → `session.compaction.ended`                                  | `sleep`                                                                                                    |
-| `session.execution.succeeded`                                                              | vide les outils, activité `idle`, réaction `happy` pendant 1 100 ms                                        |
-| `session.execution.interrupted`                                                            | vide les outils, activité `idle`, réaction `vexed` pendant 1 300 ms                                        |
-| Envoi d'un nouveau prompt                                                                  | efface les erreurs « jusqu'au prochain prompt »                                                            |
-| Fenêtre de nouveau visible après au moins 30 s d'absence (`visibilitychange`, côté client) | réaction `surprised` pendant 1 200 ms                                                                      |
+| Server event                                                                           | Effect                                                                                                     |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `session.execution.started`, `session.step.started`, `session.reasoning.started`       | activity → `think`. `step.started` also clears an error of the "until the next step" kind                  |
+| `session.text.started`                                                                 | activity → `respond`                                                                                       |
+| `session.tool.input.started`                                                           | adds the tool (its name arrives here), classified as in 2.3                                                |
+| `session.tool.called` with no `input.started` seen before for this `callId`            | adds the tool as **generic** (the eye missed its start), with its name as the label                        |
+| `session.tool.success`                                                                 | removes the tool; if none is left → activity `think`                                                       |
+| `session.tool.failed`                                                                  | removes the tool; `error-flash` error for 1,500 ms, then the eye carries on with what it was doing         |
+| `permission.asked` → `permission.replied`                                              | `attention` while waiting, then back to the previous state. If the reply is a rejection → `vexed` reaction |
+| `form.created` → `form.replied` / `form.cancelled`                                     | `attention` (a question asked by the question tool)                                                        |
+| `session.compaction.started` → `session.compaction.ended`                              | `sleep`                                                                                                    |
+| `session.execution.succeeded`                                                          | clears the tools, activity `idle`, `happy` reaction for 1,100 ms                                           |
+| `session.execution.interrupted`                                                        | clears the tools, activity `idle`, `vexed` reaction for 1,300 ms                                           |
+| A new prompt is sent                                                                   | clears the errors that last "until the next prompt"                                                        |
+| The window is visible again after at least 30 s away (`visibilitychange`, client side) | `surprised` reaction for 1,200 ms                                                                          |
 
-### 2.3 Classification des outils
+### 2.3 Tool classification
 
-| Type (`data-state`) | Outils                                               | Badge     |
+| Kind (`data-state`) | Tools                                                | Badge     |
 | ------------------- | ---------------------------------------------------- | --------- |
-| `read`              | read, grep, glob, search, list, ls, find, codesearch | loupe     |
-| `write`             | patch, apply_patch, edit, multiedit, write           | crayon    |
+| `read`              | read, grep, glob, search, list, ls, find, codesearch | magnifier |
+| `write`             | patch, apply_patch, edit, multiedit, write           | pencil    |
 | `shell`             | shell, bash, terminal                                | terminal  |
-| `delegate`          | task, subagent                                       | branche   |
+| `delegate`          | task, subagent                                       | branch    |
 | `web`               | webfetch, websearch                                  | globe     |
 | `plan`              | todowrite, todoread                                  | checklist |
-| `generic`           | tout le reste : MCP, execute…                        | puzzle    |
+| `generic`           | everything else: MCP, execute…                       | puzzle    |
 
-Pour `execute`, le libellé et l'icône montrent **l'outil appelé à l'intérieur** (par exemple `execute` → `mantis.get_issue`). L'outil interne est classé avec la même table, et reste générique s'il n'y figure pas.
+For `execute`, the label and the icon show **the tool called inside** (for example `execute` → `tracker.get_issue`). The inner tool is classified with the same table, and stays generic when it is not in it.
 
-**Outils en parallèle** : on affiche la variante la plus « intense », dans l'ordre `write` > `shell` > `delegate` > `read` > `web` > `plan` > `generic`. Le badge affiche un compteur `×N` quand N > 1.
+**Parallel tools**: show the most "intense" kind, in the order `write` > `shell` > `delegate` > `read` > `web` > `plan` > `generic`. The badge shows a `×N` counter when N > 1.
 
-### 2.4 Erreurs
+### 2.4 Errors
 
-| Événement                                      | Durée de l'erreur                                                                                         | `data-state`   |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------- |
-| `session.tool.failed`                          | éclair de 1,5 s, puis l'œil reprend ce qu'il faisait                                                      | `error-flash`  |
-| `session.step.failed`                          | durable, jusqu'au prochain `step.started`                                                                 | `error`        |
-| `session.execution.failed`                     | durable, avec spirale, jusqu'au prochain prompt                                                           | `error-spiral` |
-| `session.compaction.failed`                    | durable, jusqu'à la prochaine compaction ou au prochain prompt                                            | `error`        |
-| N'importe quel événement de type **`aborted`** | **pas une erreur** : c'est un refus d'approbation ou une interruption de l'utilisateur → réaction `vexed` | `vexed`        |
+| Event                               | How long the error lasts                                                              | `data-state`   |
+| ----------------------------------- | ------------------------------------------------------------------------------------- | -------------- |
+| `session.tool.failed`               | a 1.5 s flash, then the eye carries on with what it was doing                         | `error-flash`  |
+| `session.step.failed`               | lasting, until the next `step.started`                                                | `error`        |
+| `session.execution.failed`          | lasting, with a spiral, until the next prompt                                         | `error-spiral` |
+| `session.compaction.failed`         | lasting, until the next compaction or the next prompt                                 | `error`        |
+| Any event of the **`aborted`** type | **not an error**: a declined approval or the user stopping the run → `vexed` reaction | `vexed`        |
 
-### 2.5 Stabilité de l'affichage (obligatoire)
+### 2.5 Display stability (required)
 
-Sans ces règles, l'œil clignote d'un état à l'autre quand les outils s'enchaînent.
+Without these rules, the eye flickers from one state to the next when tools follow one another.
 
-- **Temps minimum par état** : un état visible reste affiché **au moins 400 ms** avant de céder la place, sauf devant `attention`, une erreur ou `sleep`, qui passent immédiatement.
-- **Délai avant réflexion** : le passage d'un outil vers `think` attend **250 ms**. Si un autre outil démarre entre-temps, on passe directement d'un outil à l'autre, sans passer par `think`.
-- Les réactions brèves et `error-flash` ont une durée fixe et ne sont pas prolongées par le temps minimum.
+- **Minimum time per state**: a visible state shows for **at least 400 ms** before giving way, except to `attention`, an error or `sleep`, which go through at once.
+- **Delay before thinking**: going from a tool to `think` waits **250 ms**. If another tool starts in the meantime, the eye goes straight from one tool to the other, without going through `think`.
+- Short reactions and `error-flash` have a fixed length and are not lengthened by the minimum time.
 
-### 2.6 Modificateurs (dérivés du temps)
+### 2.6 Modifiers (derived from time)
 
-| Modificateur | Condition                                                             | Effet                                                               |
-| ------------ | --------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `impatient`  | l'outil affiché tourne depuis plus de 15 s                            | toutes les 2,8 s : regard vers l'utilisateur, puis soupir ; sablier |
-| `bored`      | `idle` depuis plus de 2 min sans aucun événement                      | paupière lourde, regard lent ; libellé « S'ennuie »                 |
-| `tired`      | usage du contexte au-dessus de 80 % (si l'information est disponible) | paupière alourdie de 0,2 en permanence ; tasse de café              |
+| Modifier    | Condition                                                 | Effect                                                |
+| ----------- | --------------------------------------------------------- | ----------------------------------------------------- |
+| `impatient` | the tool shown has been running for more than 15 s        | every 2.8 s: looks at the user, then sighs; hourglass |
+| `bored`     | `idle` for more than 2 min without any event              | heavy lid, slow gaze; label "Bored"                   |
+| `tired`     | context usage above 80 % (when that information is known) | lid 0.2 heavier at all times; cup of coffee           |
 
-Les modificateurs se combinent avec l'état. Ils sont exposés sur l'élément racine via `data-impatient="on|off"` et `data-tired="on|off"`, et transmis au moteur via `getInput().mods`.
+Modifiers combine with the state. They are exposed on the root element as `data-impatient="on|off"` and `data-tired="on|off"`, and passed to the engine through `getInput().mods`.
 
 ---
 
-## 3. Dessin
+## 3. Drawing
 
-Référence : `reference/eye.html`.
+Reference: `reference/eye.html`.
 
-### 3.1 L'œil (viewBox `0 -30 200 230`, ratio hauteur = 1,15 × largeur)
+### 3.1 The eye (viewBox `0 -30 200 230`, height = 1.15 × width)
 
-Le centre de l'œil est en (100, 100).
+The eye's center is at (100, 100).
 
-| Élément      | Géométrie                                                                        | Rôle                                                     |
-| ------------ | -------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `.ring`      | cercle r = 72, trait `--stroke-w`, fond `--fill`                                 | contour de l'œil                                         |
-| `.ticks`     | 5 cils, segments de r ≈ 81 à r ≈ 92 autour du centre, à −44°, −22°, 0°, 22°, 44° | cils ; ils suivent la paupière                           |
-| `.pup`       | disque r = 17, couleur `--pupil-c`                                               | pupille, découpée par le cercle                          |
-| `.brow`      | `M 64 -6 Q 100 -20 136 -6`                                                       | sourcil (désactivable avec `data-brow="off"`)            |
-| `.lids`      | groupe                                                                           | paupière : `scaleY(1 − lid × 0,94)` autour de (100, 100) |
-| `.smile`     | `M 46 112 Q 100 48 154 112`                                                      | arc « ^ » de l'état `happy`                              |
-| `.spiral-g`  | spirale d'Archimède r = 2 + 1,75 θ, θ ∈ [0, 7π]                                  | erreur durable avec spirale                              |
-| `.halo`      | cercle r = 72                                                                    | pulsation de l'état `attention`                          |
-| `.bubble`    | 2 cercles et une ellipse (174, −42) 32 × 21, 3 points                            | bulle de réflexion, retournée selon le côté du regard    |
-| `.stars`     | 3 étincelles à r ≈ 90                                                            | erreurs                                                  |
-| `.confetti`  | 10 rectangles 3,5 × 9                                                            | `happy`                                                  |
-| `.hourglass` | en (16, 4)                                                                       | modificateur `impatient`                                 |
-| `.coffee`    | en (18, 170)                                                                     | modificateur `tired`                                     |
+| Element      | Geometry                                                                                | Role                                            |
+| ------------ | --------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `.ring`      | circle r = 72, stroke `--stroke-w`, fill `--fill`                                       | the eye's outline                               |
+| `.ticks`     | 5 lashes, segments from r ≈ 81 to r ≈ 92 around the center, at −44°, −22°, 0°, 22°, 44° | lashes; they follow the lid                     |
+| `.pup`       | disc r = 17, color `--pupil-c`                                                          | pupil, clipped by the circle                    |
+| `.brow`      | `M 64 -6 Q 100 -20 136 -6`                                                              | brow (can be turned off with `data-brow="off"`) |
+| `.lids`      | group                                                                                   | lid: `scaleY(1 − lid × 0.94)` around (100, 100) |
+| `.smile`     | `M 46 112 Q 100 48 154 112`                                                             | the "^" arc of the `happy` state                |
+| `.spiral-g`  | Archimedean spiral r = 2 + 1.75 θ, θ ∈ [0, 7π]                                          | lasting error with a spiral                     |
+| `.halo`      | circle r = 72                                                                           | the pulse of the `attention` state              |
+| `.bubble`    | 2 circles and an ellipse (174, −42) 32 × 21, 3 dots                                     | thought bubble, flipped with the gaze's side    |
+| `.stars`     | 3 sparkles at r ≈ 90                                                                    | errors                                          |
+| `.confetti`  | 10 rectangles 3.5 × 9                                                                   | `happy`                                         |
+| `.hourglass` | at (16, 4)                                                                              | `impatient` modifier                            |
+| `.coffee`    | at (18, 170)                                                                            | `tired` modifier                                |
 
-### 3.2 La scène sous l'œil (viewBox `0 0 200 120`, hauteur = 0,6 × largeur de l'œil)
+### 3.2 The scene under the eye (viewBox `0 0 200 120`, height = 0.6 × the eye's width)
 
-Un accessoire par état. Chacun apparaît avec un petit rebond : depuis `translateY(18) scale(.6)`, en 0,5 s avec `cubic-bezier(.34, 1.56, .64, 1)`.
+One prop per state. Each comes in with a small bounce: from `translateY(18) scale(.6)`, in 0.5 s with `cubic-bezier(.34, 1.56, .64, 1)`.
 
-| État        | Accessoire                                           | Interaction avec l'œil                                                                      |
-| ----------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `read`      | feuille de 4 lignes et loupe                         | la loupe parcourt les lignes, la ligne en cours s'allume (`data-line`), l'œil suit la loupe |
-| `write`     | même feuille et crayon                               | le crayon trace les lignes, l'œil suit la pointe                                            |
-| `shell`     | terminal : lignes qui défilent, curseur qui clignote | l'œil le fixe                                                                               |
-| `generic`   | pièce de puzzle qui tourne                           | elle saute d'un point à l'autre, l'œil la suit                                              |
-| `delegate`  | mini-œil (r = 20, pupille r = 7, 3 cils)             | les deux se regardent, puis le petit part travailler et le grand le surveille               |
-| `web`       | globe dont les méridiens tournent                    | l'œil regarde au loin par-dessus                                                            |
-| `plan`      | checklist de 4 cases                                 | les coches se tracent une à une, le regard suit la case                                     |
-| `respond`   | bulle de dialogue avec 3 lignes                      | les lignes s'écrivent                                                                       |
-| `attention` | « ? » suspendu                                       | il se balance                                                                               |
-| `sleep`     | oreiller                                             | il respire                                                                                  |
+| State       | Prop                                         | Interaction with the eye                                                                        |
+| ----------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `read`      | a sheet with 4 lines and a magnifier         | the magnifier goes over the lines, the current line lights up (`data-line`), the eye follows it |
+| `write`     | the same sheet and a pencil                  | the pencil draws the lines, the eye follows its tip                                             |
+| `shell`     | a terminal: scrolling lines, blinking cursor | the eye stares at it                                                                            |
+| `generic`   | a spinning puzzle piece                      | it jumps from point to point, the eye follows it                                                |
+| `delegate`  | a mini eye (r = 20, pupil r = 7, 3 lashes)   | they look at each other, then the small one goes to work and the big one watches it             |
+| `web`       | a globe with turning meridians               | the eye looks far away, over it                                                                 |
+| `plan`      | a checklist of 4 boxes                       | the checks draw one by one, the gaze follows the box                                            |
+| `respond`   | a speech bubble with 3 lines                 | the lines write themselves                                                                      |
+| `attention` | a hanging "?"                                | it swings                                                                                       |
+| `sleep`     | a pillow                                     | it breathes                                                                                     |
 
-### 3.3 Badge et carte de détails
+### 3.3 Badge and details card
 
-- **Badge** (HTML, en haut à droite de l'œil) : icône de l'outil + nom, compteur `×N` si plusieurs outils tournent. Il apparaît avec un rebond de 0,45 s. Les icônes au trait de la référence sont des **remplaçants** : utilise celles de l'application.
-- **Clic sur l'œil** (l'œil est un `<button>`) : clignement, deuxième clignement à +200 ms, puis à +380 ms la carte s'ouvre. Elle contient :
-  - l'outil en cours (et le nombre d'outils en parallèle) ;
-  - la durée dans l'état courant, mise à jour chaque seconde ;
-  - les 5 dernières transitions, avec l'heure et l'événement déclencheur.
+- **Badge** (HTML, top right of the eye): the tool's icon + its name, a `×N` counter when several tools run. It comes in with a 0.45 s bounce. The line icons of the reference are **placeholders**: use the app's.
+- **Click on the eye** (the eye is a `<button>`): a blink, a second blink at +200 ms, then at +380 ms the card opens. It holds:
+  - the tool in flight (and the number of tools in parallel);
+  - how long the current state has lasted, updated every second;
+  - the 5 latest transitions, with their time and the event that caused them.
 
-  Un deuxième clic, ou le bouton ×, la ferme. Échap doit aussi la fermer.
+  A second click, or the × button, closes it. Escape must close it too.
 
 ### 3.4 Tokens
 
-Toutes les couleurs et tailles sont des variables CSS (voir `eye.css`).
+Every color and size is a CSS variable (see `eye.css`).
 
-| Variable                    | Sombre                                                | Clair                             |
+| Variable                    | Dark                                                  | Light                             |
 | --------------------------- | ----------------------------------------------------- | --------------------------------- |
 | `--contour`                 | `#8fb3ff`                                             | `#2f55c8`                         |
 | `--pupil-c`                 | `= --contour`                                         | `= --contour`                     |
-| `--fill`                    | `color-mix(in oklch, var(--contour) 9%, transparent)` | idem                              |
+| `--fill`                    | `color-mix(in oklch, var(--contour) 9%, transparent)` | same                              |
 | `--err`                     | `#ff9a6b`                                             | `#c2410c`                         |
 | `--bg` / `--bg2` / `--line` | `#16181d` / `#1c1f25` / `#2a2e36`                     | `#fbfbfa` / `#f1f1ee` / `#dcdbd6` |
 | `--muted`                   | `#8d929d`                                             | `#5d616a`                         |
-| `--stroke-w`                | `3.5` (unités du viewBox)                             | idem                              |
+| `--stroke-w`                | `3.5` (viewBox units)                                 | same                              |
 
-**Intègre ces valeurs aux tokens du thème d'OpenCode** au lieu de les coder en dur : `--bg` et `--muted` doivent venir du thème de l'application. `--contour` peut rester l'accent propre au plugin.
+**Wire these values to OpenCode's theme tokens instead of hard-coding them**: `--bg` and `--muted` must come from the app's theme. `--contour` may stay the plugin's own accent.
 
-La taille de l'œil est réglable de 80 à 300 px de large. Par défaut, il occupe environ 60 % de la largeur du panneau. Sous 120 px, masque la scène, la bulle et les confettis : seul l'œil reste lisible à cette taille.
+The eye's size can be set from 80 to 300 px wide. By default, it takes about 60 % of the panel's width. Under 120 px, hide the scene, the bubble and the confetti: only the eye stays readable at that size.
 
 ---
 
-## 4. Moteur d'animation
+## 4. Animation engine
 
-Référence : `reference/eye-engine.js`. Porte-le tel quel : les valeurs ont été réglées à l'œil.
+Reference: `reference/eye-engine.js`. Port it as is: the values were tuned by eye.
 
-### 4.1 Modèle de ressort
+### 4.1 Spring model
 
-Chaque grandeur animée suit un ressort amorti, intégré à chaque frame (pas = dt / 16,667 ms, borné à [0,25 ; 3], subdivisé en pas ≤ 1) :
+Each animated value follows a damped spring, integrated on every frame (step = dt / 16.667 ms, clamped to [0.25; 3], split into steps ≤ 1):
 
 ```
-v += ((cible − x) · k − v · c) · h
+v += ((target − x) · k − v · c) · h
 x += v · h
 ```
 
-Avec k ≈ 0,1 et c ≈ 0,35, le ressort est sous-amorti : il dépasse légèrement sa cible, ce qui donne le côté élastique. **Aucun mouvement n'est linéaire.**
+With k ≈ 0.1 and c ≈ 0.35, the spring is underdamped: it overshoots its target slightly, which gives the springy feel. **No motion is linear.**
 
-| Grandeur                     | k                                                 | c    | Note                                                                   |
-| ---------------------------- | ------------------------------------------------- | ---- | ---------------------------------------------------------------------- |
-| Regard (`x`, `y`)            | 0,12 par défaut, variable selon l'état (voir 4.4) | 0,40 | amplitude : x × 40, y × 36 unités du viewBox                           |
-| Paupière (`lid`)             | 0,07                                              | 0,34 | sauf `sleep`, piloté directement par le temps                          |
-| Sourcil (`by`, `br`)         | 0,10                                              | 0,35 | `by` en unités du viewBox, `br` en degrés                              |
-| Coup d'échelle (`kick`)      | 0,18                                              | 0,22 | cible 1 ; reçoit une impulsion de vitesse à l'entrée de certains états |
-| Côté de la bulle (`bs`)      | 0,12                                              | 0,30 | cible ±1 ; passe par 0, ce qui « retourne » la bulle                   |
-| Pièce de puzzle (`zx`, `zy`) | 0,20                                              | 0,45 |                                                                        |
-| Mini-œil (`mix`, `miy`)      | 0,15                                              | 0,40 |                                                                        |
-| Pupille (échelle)            | lissage exponentiel 0,12 × dt                     |      |                                                                        |
+| Value                     | k                                          | c    | Note                                                      |
+| ------------------------- | ------------------------------------------ | ---- | --------------------------------------------------------- |
+| Gaze (`x`, `y`)           | 0.12 by default, varies by state (see 4.4) | 0.40 | amplitude: x × 40, y × 36 viewBox units                   |
+| Lid (`lid`)               | 0.07                                       | 0.34 | except `sleep`, driven by time directly                   |
+| Brow (`by`, `br`)         | 0.10                                       | 0.35 | `by` in viewBox units, `br` in degrees                    |
+| Scale kick (`kick`)       | 0.18                                       | 0.22 | target 1; gets a velocity impulse on entering some states |
+| Bubble side (`bs`)        | 0.12                                       | 0.30 | target ±1; goes through 0, which "flips" the bubble       |
+| Puzzle piece (`zx`, `zy`) | 0.20                                       | 0.45 |                                                           |
+| Mini eye (`mix`, `miy`)   | 0.15                                       | 0.40 |                                                           |
+| Pupil (scale)             | exponential smoothing 0.12 × dt            |      |                                                           |
 
-### 4.2 Variables écrites par le moteur
+### 4.2 Variables the engine writes
 
-- **Sur le SVG de l'œil** : `--look-x`, `--look-y`, `--lid`, `--pupil`, `--brow-y`, `--brow-r`, `--kick`, `--shake`, `--bub-s`.
-- **Sur le SVG de la scène** : `--lx`, `--ly` (loupe), `--px`, `--py`, `--pr` (crayon), `--w0` à `--w3` (lignes écrites, 1 = vide, 0 = pleine), `--c0` à `--c3` (coches), `--zx`, `--zy` (puzzle), `--mix`, `--miy`, `--mpx`, `--mpy` (mini-œil).
-- **Attributs** : `data-line` (ligne lue, 0 à 3), sur la scène et sur l'œil.
+- **On the eye's SVG**: `--look-x`, `--look-y`, `--lid`, `--pupil`, `--brow-y`, `--brow-r`, `--kick`, `--shake`, `--bub-s`.
+- **On the scene's SVG**: `--lx`, `--ly` (magnifier), `--px`, `--py`, `--pr` (pencil), `--w0` to `--w3` (written lines, 1 = empty, 0 = full), `--c0` to `--c3` (checks), `--zx`, `--zy` (puzzle), `--mix`, `--miy`, `--mpx`, `--mpy` (mini eye).
+- **Attributes**: `data-line` (the line being read, 0 to 3), on the scene and on the eye.
 
-### 4.3 Clignements
+### 4.3 Blinks
 
-- **Durée** : 180 ms. Fermeture sur 40 % du temps (sinus), ouverture sur 60 % (easing cubique de sortie). Valeur appliquée : `lid + (1 − lid) × b`.
-- **Fréquence** : un clignement toutes les 2,4 à 6,6 s en `idle`, toutes les 3,8 à 8 s ailleurs. Dans 18 % des cas, le clignement est double, avec un second clignement 280 ms plus tard.
-- **États sans clignement** : `attention`, `sleep`, `error-flash`, `error-spiral`, `happy`, `surprised`.
+- **Length**: 180 ms. Closing over 40 % of the time (sine), opening over 60 % (cubic ease-out). Value applied: `lid + (1 − lid) × b`.
+- **Frequency**: a blink every 2.4 to 6.6 s in `idle`, every 3.8 to 8 s elsewhere. 18 % of the time the blink is double, with a second blink 280 ms later.
+- **States without blinks**: `attention`, `sleep`, `error-flash`, `error-spiral`, `happy`, `surprised`.
 
-### 4.4 Paramètres par état
+### 4.4 Parameters per state
 
-Unités du regard : −1 à 1 (multipliées par 40 en x et 36 en y). Pupille : facteur d'échelle. Paupière : 0 (ouverte) à 1 (fermée). Sourcil : `by` en unités du viewBox (négatif = levé), `br` en degrés. T = temps écoulé depuis l'entrée dans l'état (ms).
+Gaze units: −1 to 1 (times 40 in x and 36 in y). Pupil: scale factor. Lid: 0 (open) to 1 (closed). Brow: `by` in viewBox units (negative = raised), `br` in degrees. T = time since entering the state (ms).
 
-| État           | Regard (cible)                                                                                                                           | Pupille                                                                 | Paupière                                           | Sourcil                              | Ressort regard | Particularités                                                                                                                                                                         |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `idle`         | direction du curseur × min(1, distance / (1,1 × largeur de l'œil)). Sans curseur : point aléatoire (±0,45 ; ±0,3) toutes les 1,4 à 3,6 s | 1 + 0,04 sin(t/1100), × 1,14 si le curseur est à moins de 40 px du bord | 0                                                  | 0                                    | 0,12 / 0,40    | micro-saccades ±0,04 / ±0,05 toutes les 0,5 à 2 s                                                                                                                                      |
-| `think`        | (côté × 0,62 ; −0,62) + saccades ±0,08 / ±0,06 toutes les 250 à 650 ms                                                                   | 0,95                                                                    | 0                                                  | by −6, br −côté × 9                  | 0,16 / 0,45    | le côté change toutes les 3 à 6 s ; la bulle suit le côté                                                                                                                              |
-| `respond`      | (0,07 sin(T/900) ; 0,04 + 0,03 sin(T/260))                                                                                               | 1 + 0,08 · \|sin(T/120)\| · (0,5 + 0,5 sin(T/650))                      | 0,05                                               | by −2 + 2,5 sin(T/260)               | défaut         | lignes de la bulle : cycle de 3,2 s                                                                                                                                                    |
-| `read`         | suit la loupe : x = (lx − 100) / 40 × 0,75 ; y = 0,5 + (ly − 59) × 0,004                                                                 | 0,62                                                                    | 0                                                  | by 1                                 | défaut         | 4 lignes ; balayage de 1 150 ms (easeInOutQuad), retour de 320 ms ; loupe lissée à 0,35 par frame                                                                                      |
-| `write`        | suit la pointe : x = (px − 100) / 40 × 0,75 ; y = 0,58                                                                                   | 0,8                                                                     | 0,45                                               | by 4                                 | défaut         | 4 lignes de 1 400 ms + 800 ms de pause, crayon levé ; tremblement du crayon y ± 1,3, rotation −4 + 6 sin(T/110)                                                                        |
-| `shell`        | (0 ; 0,42) + tremblement ±0,025 par frame                                                                                                | 0,48                                                                    | 0,12                                               | by 6                                 | 0,30 / 0,55    | défilement du terminal par à-coups (2,6 s pour 3 lignes) ; tremblement coupé en mouvement réduit                                                                                       |
-| `generic`      | suit la pièce : x = (zx − 100) / 48 × 0,6 ; y = 0,42 + (zy − 60) / 30 × 0,22                                                             | 0,9                                                                     | 0                                                  | by −3, br aléatoire ±5 à chaque saut | 0,22 / 0,50    | nouveau point toutes les 350 à 800 ms (rayon 0,35 à 0,8) ; la pièce tourne en 5 s                                                                                                      |
-| `delegate`     | phase 1 (0 à 1 300 ms) : (0 ; 0,62). Phase 2 (1 300 à 3 400 ms) : suit le mini-œil, y = 0,55                                             | 0,85                                                                    | 0                                                  | by −2, br −4 en phase 1              | défaut         | mini-œil en phase 1 : centré, pupille (0, −7) qui regarde le grand. En phase 2 : x = 100 + 42 sin(2π w), pupille (±5, 4)                                                               |
-| `web`          | (0,18 sin(T/2400) ; −0,28 + 0,05 sin(T/1700))                                                                                            | 0,42                                                                    | 0                                                  | by −5                                | 0,06 / 0,35    | méridiens du globe : 3 s                                                                                                                                                               |
-| `plan`         | (−0,45 ; 0,35 + rang × 0,09), +0,12 vers le bas au moment de cocher                                                                      | 0,8                                                                     | 0                                                  | by 3                                 | 0,20 / 0,45    | pas de 800 ms × 6 (4 coches + 2 temps de pause) ; chaque coche se trace entre 30 % et 55 % de son pas                                                                                  |
-| `attention`    | curseur × 0,12                                                                                                                           | 1,4                                                                     | 0                                                  | by −10                               | défaut         | impulsion d'échelle +0,06 à l'entrée ; halo qui pulse (1,6 s, échelle 1 → 1,28, opacité 0,55 → 0) ; cils à l'échelle 1,07 ; « ? » qui oscille de ±10° en 1,6 s                         |
-| `sleep`        | (0 ; 0,55)                                                                                                                               | 0,8                                                                     | **0 → 1 en 2 600 ms**, easeInOutQuad, sans ressort | by 7                                 | 0,05 / 0,30    | « z » : 2,6 s, décalés de 0,85 s ; cils à 35 % d'opacité ; l'oreiller respire en 3 s                                                                                                   |
-| `error-flash`  | roule le long du bord : angle T/140 rad, rayon 0,9                                                                                       | 0,7                                                                     | 0,08                                               | br 12 sin(T/90)                      | 0,25 / 0,45    | secousse horizontale de 7 unités, amortie de × 0,88 par frame, oscillant en sin(t/22) ; impulsion −0,05 ; couleur `--err` ; étoiles (tour en 2,2 s)                                    |
-| `error`        | roule : angle T/420, rayon 0,9                                                                                                           | 0,7                                                                     | 0,08                                               | by 3, br 10 sin(T/300)               | 0,25 / 0,45    | secousse de 5 ; impulsion −0,04 ; clignements autorisés                                                                                                                                |
-| `error-spiral` | pupille masquée                                                                                                                          |                                                                         |                                                    | br 10 sin(T/300)                     |                | spirale `--err` qui tourne en 1,8 s                                                                                                                                                    |
-| `happy`        | (0 ; 0)                                                                                                                                  |                                                                         | cercle masqué (fondu de 0,14 s)                    | by −9                                |                | arc « ^ » qui passe de l'échelle 0,5 à 1 en 0,45 s, `cubic-bezier(.34, 1.8, .5, 1)` ; impulsion +0,07 ; confettis (1,1 s, chute de 160 unités, rotation de 260°, décalés de 0 à 0,2 s) |
-| `vexed`        | (0,82 ; −0,12)                                                                                                                           | 0,5                                                                     | 0,42                                               | by 7, br −7                          | 0,20 / 0,45    | impulsion −0,08                                                                                                                                                                        |
-| `surprised`    | (0 ; −0,1)                                                                                                                               | 0,4 pendant 220 ms, puis 1,2                                            | 0                                                  | by −16                               | 0,25 / 0,40    | impulsion +0,1                                                                                                                                                                         |
+| State          | Gaze (target)                                                                                                                       | Pupil                                                                     | Lid                                             | Brow                             | Gaze spring | Particulars                                                                                                                                                     |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------- | -------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `idle`         | toward the pointer × min(1, distance / (1.1 × the eye's width)). Without a pointer: a random point (±0.45; ±0.3) every 1.4 to 3.6 s | 1 + 0.04 sin(t/1100), × 1.14 when the pointer is within 40 px of the edge | 0                                               | 0                                | 0.12 / 0.40 | micro-saccades ±0.04 / ±0.05 every 0.5 to 2 s                                                                                                                   |
+| `think`        | (side × 0.62; −0.62) + saccades ±0.08 / ±0.06 every 250 to 650 ms                                                                   | 0.95                                                                      | 0                                               | by −6, br −side × 9              | 0.16 / 0.45 | the side changes every 3 to 6 s; the bubble follows the side                                                                                                    |
+| `respond`      | (0.07 sin(T/900); 0.04 + 0.03 sin(T/260))                                                                                           | 1 + 0.08 · \|sin(T/120)\| · (0.5 + 0.5 sin(T/650))                        | 0.05                                            | by −2 + 2.5 sin(T/260)           | default     | bubble lines: a 3.2 s cycle                                                                                                                                     |
+| `read`         | follows the magnifier: x = (lx − 100) / 40 × 0.75; y = 0.5 + (ly − 59) × 0.004                                                      | 0.62                                                                      | 0                                               | by 1                             | default     | 4 lines; 1,150 ms sweep (easeInOutQuad), 320 ms return; magnifier smoothed at 0.35 per frame                                                                    |
+| `write`        | follows the tip: x = (px − 100) / 40 × 0.75; y = 0.58                                                                               | 0.8                                                                       | 0.45                                            | by 4                             | default     | 4 lines of 1,400 ms + 800 ms of pause, pencil lifted; pencil jitter y ± 1.3, rotation −4 + 6 sin(T/110)                                                         |
+| `shell`        | (0; 0.42) + jitter ±0.025 per frame                                                                                                 | 0.48                                                                      | 0.12                                            | by 6                             | 0.30 / 0.55 | the terminal scrolls in jolts (2.6 s for 3 lines); no jitter with reduced motion                                                                                |
+| `generic`      | follows the piece: x = (zx − 100) / 48 × 0.6; y = 0.42 + (zy − 60) / 30 × 0.22                                                      | 0.9                                                                       | 0                                               | by −3, br random ±5 at each jump | 0.22 / 0.50 | a new point every 350 to 800 ms (radius 0.35 to 0.8); the piece turns in 5 s                                                                                    |
+| `delegate`     | phase 1 (0 to 1,300 ms): (0; 0.62). Phase 2 (1,300 to 3,400 ms): follows the mini eye, y = 0.55                                     | 0.85                                                                      | 0                                               | by −2, br −4 in phase 1          | default     | mini eye in phase 1: centered, pupil (0, −7) looking at the big one. In phase 2: x = 100 + 42 sin(2π w), pupil (±5, 4)                                          |
+| `web`          | (0.18 sin(T/2400); −0.28 + 0.05 sin(T/1700))                                                                                        | 0.42                                                                      | 0                                               | by −5                            | 0.06 / 0.35 | globe meridians: 3 s                                                                                                                                            |
+| `plan`         | (−0.45; 0.35 + row × 0.09), +0.12 down while checking                                                                               | 0.8                                                                       | 0                                               | by 3                             | 0.20 / 0.45 | steps of 800 ms × 6 (4 checks + 2 beats of pause); each check draws between 30 % and 55 % of its step                                                           |
+| `attention`    | pointer × 0.12                                                                                                                      | 1.4                                                                       | 0                                               | by −10                           | default     | +0.06 scale impulse on entering; pulsing halo (1.6 s, scale 1 → 1.28, opacity 0.55 → 0); lashes at scale 1.07; "?" swinging ±10° in 1.6 s                       |
+| `sleep`        | (0; 0.55)                                                                                                                           | 0.8                                                                       | **0 → 1 in 2,600 ms**, easeInOutQuad, no spring | by 7                             | 0.05 / 0.30 | "z": 2.6 s, 0.85 s apart; lashes at 35 % opacity; the pillow breathes in 3 s                                                                                    |
+| `error-flash`  | rolls along the edge: angle T/140 rad, radius 0.9                                                                                   | 0.7                                                                       | 0.08                                            | br 12 sin(T/90)                  | 0.25 / 0.45 | horizontal shake of 7 units, damped × 0.88 per frame, oscillating in sin(t/22); −0.05 impulse; `--err` color; stars (one turn in 2.2 s)                         |
+| `error`        | rolls: angle T/420, radius 0.9                                                                                                      | 0.7                                                                       | 0.08                                            | by 3, br 10 sin(T/300)           | 0.25 / 0.45 | shake of 5; −0.04 impulse; blinks allowed                                                                                                                       |
+| `error-spiral` | pupil hidden                                                                                                                        |                                                                           |                                                 | br 10 sin(T/300)                 |             | `--err` spiral turning in 1.8 s                                                                                                                                 |
+| `happy`        | (0; 0)                                                                                                                              |                                                                           | circle hidden (0.14 s fade)                     | by −9                            |             | "^" arc going from scale 0.5 to 1 in 0.45 s, `cubic-bezier(.34, 1.8, .5, 1)`; +0.07 impulse; confetti (1.1 s, a 160-unit fall, 260° rotation, 0 to 0.2 s apart) |
+| `vexed`        | (0.82; −0.12)                                                                                                                       | 0.5                                                                       | 0.42                                            | by 7, br −7                      | 0.20 / 0.45 | −0.08 impulse                                                                                                                                                   |
+| `surprised`    | (0; −0.1)                                                                                                                           | 0.4 for 220 ms, then 1.2                                                  | 0                                               | by −16                           | 0.25 / 0.40 | +0.1 impulse                                                                                                                                                    |
 
-**Modificateurs** :
+**Modifiers**:
 
-- **`impatient`** (sur les états d'outil) : cycle de 2,8 s.
-  - De 0 à 750 ms : regard vers l'utilisateur (curseur × 0,35, ou (0 ; 0,05) sans curseur), pupille 1,05, sourcil by −4 et br −8.
-  - De 750 à 1 250 ms : soupir, la paupière monte jusqu'à 0,42 × sin(π u).
-  - Le sablier se retourne toutes les 1,8 s.
-- **`bored`** (sur `idle`) : paupière 0,42, ressort du regard 0,04 / 0,30, pupille × 0,92, sourcil by 5. Sans curseur, l'errance est réduite à × 0,6 et descend vers le bas.
-- **`tired`** : +0,2 sur la paupière, sauf en `attention`, `surprised`, `happy` et `sleep`. Une tasse de café apparaît, avec une vapeur sur un cycle de 2 s.
+- **`impatient`** (on tool states): a 2.8 s cycle.
+  - From 0 to 750 ms: looks at the user (pointer × 0.35, or (0; 0.05) without a pointer), pupil 1.05, brow by −4 and br −8.
+  - From 750 to 1,250 ms: a sigh, the lid rises to 0.42 × sin(π u).
+  - The hourglass flips every 1.8 s.
+- **`bored`** (on `idle`): lid 0.42, gaze spring 0.04 / 0.30, pupil × 0.92, brow by 5. Without a pointer, the wandering shrinks to × 0.6 and drifts down.
+- **`tired`**: +0.2 on the lid, except in `attention`, `surprised`, `happy` and `sleep`. A cup of coffee appears, with steam on a 2 s cycle.
 
 ### 4.5 Transitions
 
-- Le regard, la paupière, le sourcil et l'échelle passent d'un état à l'autre **par leurs ressorts** : aucune transition CSS n'est nécessaire, et un changement d'état en plein mouvement reste fluide.
-- Les éléments qui apparaissent (accessoires, bulle, arc, badge) utilisent des transitions CSS élastiques (`cubic-bezier(.34, 1.56, .64, 1)` ou `(.34, 1.8, .5, 1)`), décrites dans `eye.css`.
-- **Impulsions d'échelle** à l'entrée d'un état (`kick`, sur la vitesse du ressort d'échelle) :
+- The gaze, the lid, the brow and the scale go from one state to the next **through their springs**: no CSS transition is needed, and a change of state mid-motion stays smooth.
+- Elements that appear (props, bubble, arc, badge) use springy CSS transitions (`cubic-bezier(.34, 1.56, .64, 1)` or `(.34, 1.8, .5, 1)`), described in `eye.css`.
+- **Scale impulses** on entering a state (`kick`, on the scale spring's velocity):
 
-  | État                    | Impulsion |
-  | ----------------------- | --------- |
-  | `surprised`             | +0,10     |
-  | `happy`                 | +0,07     |
-  | `attention`             | +0,06     |
-  | `vexed`                 | −0,08     |
-  | `error-flash`           | −0,05     |
-  | `error`, `error-spiral` | −0,04     |
-
----
-
-## 5. Mouvement réduit
-
-Quand `prefers-reduced-motion: reduce` est actif, ou quand un réglage du plugin le demande, ajoute `data-reduced="on"` sur la racine et passe `reduced: true` au moteur. Dans ce mode :
-
-- Le suivi du curseur, les clignements et les ressorts restent : ce sont des mouvements doux et utiles.
-- Plus de tremblement en `shell`, plus de secousse, plus de roulement d'œil en erreur : la pupille se fixe vers le bas, en (0 ; 0,3), et le sourcil est penché de 8°.
-- Plus de rotation des étoiles, de la spirale, du puzzle et du globe ; plus de défilement du terminal ni de balancement du « ? ».
-- Pas de confettis.
-- Les « z » restent visibles mais ne flottent plus. Le halo d'attention devient fixe.
+  | State                   | Impulse |
+  | ----------------------- | ------- |
+  | `surprised`             | +0.10   |
+  | `happy`                 | +0.07   |
+  | `attention`             | +0.06   |
+  | `vexed`                 | −0.08   |
+  | `error-flash`           | −0.05   |
+  | `error`, `error-spiral` | −0.04   |
 
 ---
 
-## 6. Accessibilité
+## 5. Reduced motion
 
-- L'œil est un `<button>` avec `aria-label="Afficher les détails de l'œil"`. Les SVG sont `aria-hidden`.
-- Annonce le libellé de la barre d'état via une région `aria-live="polite"`. Ne l'annonce que pour `attention`, les erreurs et la fin d'exécution, pour ne pas inonder un lecteur d'écran à chaque outil.
-- La carte de détails est un `role="dialog"` : on la ferme avec Échap, et le focus revient sur l'œil.
+When `prefers-reduced-motion: reduce` is on, or when a plugin setting asks for it, add `data-reduced="on"` on the root and pass `reduced: true` to the engine. In this mode:
+
+- Pointer tracking, blinks and springs stay: they are gentle, useful motions.
+- No more jitter in `shell`, no shake, no eye roll on errors: the pupil settles down, at (0; 0.3), and the brow tilts by 8°.
+- No more spinning stars, spiral, puzzle or globe; no more terminal scroll or "?" swing.
+- No confetti.
+- The "z"s stay visible but no longer float. The attention halo becomes still.
 
 ---
 
-## 7. Critères d'acceptation
+## 6. Accessibility
 
-- [ ] L'œil reproduit les 18 états de la section 1, avec leurs accessoires, en thème clair et en thème sombre.
-- [ ] Les événements de la section 2.2 produisent les bons états, y compris les retours après permission, formulaire, éclair d'erreur et réactions brèves.
-- [ ] Un événement `aborted` ne déclenche jamais d'erreur, mais une réaction `vexed`.
-- [ ] Des outils enchaînés à moins de 250 ms d'intervalle ne font pas passer l'œil par `think`. Aucun état visible ne dure moins de 400 ms, sauf les passages immédiats prévus en 2.5.
-- [ ] Avec plusieurs outils en parallèle, la variante affichée suit l'ordre de 2.3 et le badge affiche `×N`.
-- [ ] `execute` affiche le nom et l'icône de l'outil appelé à l'intérieur.
-- [ ] Les modificateurs `impatient`, `bored` et `tired` s'activent sur leurs seuils.
-- [ ] Le rendu reste lisible de 80 à 300 px. Sous 120 px, la scène et les accessoires sont masqués.
-- [ ] Le mouvement réduit respecte la section 5.
-- [ ] La boucle rAF s'arrête quand l'onglet est masqué ou démonté. Aucune fuite d'écouteurs.
-- [ ] Le clic sur l'œil ouvre la carte de détails ; un deuxième clic, le bouton × ou Échap la ferment.
+- The eye is a `<button>` with `aria-label="Show the eye's details"`. The SVGs are `aria-hidden`.
+- Announce the status bar's label through an `aria-live="polite"` region. Only announce it for `attention`, the errors and the end of a run, so a screen reader is not flooded on every tool.
+- The details card is a `role="dialog"`: Escape closes it, and the focus goes back to the eye.
+
+---
+
+## 7. Acceptance criteria
+
+- [ ] The eye reproduces the 18 states of section 1, with their props, in the light and dark themes.
+- [ ] The events of section 2.2 produce the right states, including the returns after a permission, a form, an error flash and short reactions.
+- [ ] An `aborted` event never triggers an error, but a `vexed` reaction.
+- [ ] Tools chained less than 250 ms apart do not go through `think`. No visible state lasts less than 400 ms, except for the immediate changes of 2.5.
+- [ ] With several tools in parallel, the variant shown follows the order of 2.3 and the badge shows `×N`.
+- [ ] `execute` shows the name and the icon of the tool called inside.
+- [ ] The `impatient`, `bored` and `tired` modifiers turn on at their thresholds.
+- [ ] The drawing stays readable from 80 to 300 px. Under 120 px, the scene and the props are hidden.
+- [ ] Reduced motion follows section 5.
+- [ ] The rAF loop stops when the tab is hidden or unmounted. No leaked listeners.
+- [ ] A click on the eye opens the details card; a second click, the × button or Escape closes it.

@@ -1,19 +1,19 @@
-// L'œil : moteur d'animation de référence (validé en maquette).
-// Sans dépendance. N'écrit que des variables CSS et l'attribut data-line ; ne touche jamais au DOM autrement.
+// The eye: reference animation engine (validated in the mock-up).
+// No dependency. Only writes CSS variables and the data-line attribute; never touches the DOM otherwise.
 //
-// Utilisation dans un composant Solid :
+// Use in a Solid component:
 //   onMount(() => {
 //     const engine = createEyeEngine({ eye: eyeSvg, stage: stageSvg, getInput: () => ({
-//       state: view().state,              // 'idle' | 'think' | … (voir eye-state.ts)
+//       state: view().state,              // 'idle' | 'think' | … (see eye-state.ts)
 //       mods: view().mods,                // { impatient, bored, tired }
-//       reduced: reducedMotion(),         // prefers-reduced-motion ou réglage
+//       reduced: reducedMotion(),         // prefers-reduced-motion or a setting
 //     }) });
 //     engine.start();
 //     onCleanup(() => engine.stop());
 //   });
-//   Au clic sur l'œil : engine.blinkTwice(), puis ouvrir la carte 380 ms plus tard.
+//   On a click on the eye: engine.blinkTwice(), then open the card 380 ms later.
 
-/** Tracé de la spirale d'erreur (centre 100,100 ; r = 2 + 1,75θ ; θ de 0 à 7π). */
+/** The error spiral's path (center 100,100; r = 2 + 1.75θ; θ from 0 to 7π). */
 export function spiralPath() {
   let d = '';
   for (let a = 0; a <= Math.PI * 7; a += 0.2) {
@@ -25,8 +25,8 @@ export function spiralPath() {
 
 const TOOL_STATES = { read: 1, write: 1, shell: 1, generic: 1, delegate: 1, web: 1, plan: 1 };
 const NO_TIRED = { attention: 1, surprised: 1, happy: 1, sleep: 1 };
-const AX = 40; // amplitude horizontale du regard (unités du viewBox)
-const AY = 36; // amplitude verticale
+const AX = 40; // the gaze's horizontal amplitude (viewBox units)
+const AY = 36; // vertical amplitude
 
 const easeInOutQuad = (u) => (u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2);
 
@@ -38,20 +38,20 @@ export function createEyeEngine({ eye, stage, getInput }) {
 
   const e = {
     st: null, t0: 0,
-    x: 0, y: 0, vx: 0, vy: 0,              // regard (−1…1)
-    lid: 0, vlid: 0,                       // paupière (0 ouverte, 1 fermée)
-    p: 1,                                  // échelle de pupille
-    by: 0, vby: 0, br: 0, vbr: 0,          // sourcil (translation, rotation)
-    k: 1, vk: 0, shake: 0,                 // coup d'échelle, secousse
-    bs: 1, vbs: 0, side: 1, sideAt: 0,     // côté de la bulle / du regard en réflexion
+    x: 0, y: 0, vx: 0, vy: 0,              // gaze (−1…1)
+    lid: 0, vlid: 0,                       // lid (0 open, 1 closed)
+    p: 1,                                  // pupil scale
+    by: 0, vby: 0, br: 0, vbr: 0,          // brow (translation, rotation)
+    k: 1, vk: 0, shake: 0,                 // scale kick, shake
+    bs: 1, vbs: 0, side: 1, sideAt: 0,     // side of the bubble / of the gaze while thinking
     blinkAt: 0, blinkStart: -1, blink2: 0,
     jx: 0, jy: 0, jitAt: 0, wx: 0, wy: 0, wanderAt: 0,
     gx: 0, gy: 0, gbr: 0, gAt: 0,
-    lx: 64, ly: 32, line: -1,              // loupe
-    px: 64, py: 32, pr: 0, w: null,        // crayon, lignes écrites
-    c: null,                               // coches
+    lx: 64, ly: 32, line: -1,              // magnifier
+    px: 64, py: 32, pr: 0, w: null,        // pencil, written lines
+    c: null,                               // checks
     zx: 100, zy: 60, vzx: 0, vzy: 0,       // puzzle
-    mix: 100, miy: 62, vmix: 0, vmiy: 0, mpx: 0, mpy: -7, // mini-œil
+    mix: 100, miy: 62, vmix: 0, vmiy: 0, mpx: 0, mpy: -7, // mini eye
   };
 
   function spring(key, vkey, target, k, c, h) {
@@ -77,7 +77,7 @@ export function createEyeEngine({ eye, stage, getInput }) {
     if (st !== e.st) { e.st = st; e.t0 = now; enter(st); }
     const T = now - e.t0;
 
-    // Curseur par rapport au centre de l'œil (centre du cercle = y 130/230 du SVG)
+    // The pointer relative to the eye's center (the circle's center is at y 130/230 of the SVG)
     let mx = 0, my = 0, near = false;
     const has = !!mouse;
     if (has) {
@@ -119,7 +119,7 @@ export function createEyeEngine({ eye, stage, getInput }) {
         break;
       }
       case 'read': {
-        // La loupe parcourt les 4 lignes de la feuille ; l'œil la suit.
+        // The magnifier goes over the sheet's 4 lines; the eye follows it.
         const sweep = 1150, ret = 320, lineDur = sweep + ret, lines = 4;
         const li = Math.floor(T / lineDur) % lines, lt = T % lineDur;
         const ys = [32, 50, 68, 86], ends = [136, 138, 124, 104], x0 = 64;
@@ -141,7 +141,7 @@ export function createEyeEngine({ eye, stage, getInput }) {
         break;
       }
       case 'write': {
-        // Le crayon écrit 4 lignes puis se lève ; l'œil suit la pointe.
+        // The pencil writes 4 lines then lifts; the eye follows its tip.
         const lineT = 1400, lines = 4, pause = 800, cycle = lineT * lines + pause;
         const ct = T % cycle;
         const ys = [32, 50, 68, 86], ends = [134, 138, 120, 96], x0 = 64;
@@ -162,7 +162,7 @@ export function createEyeEngine({ eye, stage, getInput }) {
         break;
       }
       case 'generic': {
-        // La pièce de puzzle saute d'un point à l'autre ; l'œil la suit.
+        // The puzzle piece jumps from point to point; the eye follows it.
         if (now > e.gAt) {
           const a = rnd() * Math.PI * 2, rr = 0.35 + rnd() * 0.45;
           e.gx = Math.cos(a) * rr; e.gy = Math.sin(a) * rr * 0.85; e.gbr = (rnd() - 0.5) * 10;
@@ -175,7 +175,7 @@ export function createEyeEngine({ eye, stage, getInput }) {
         break;
       }
       case 'delegate': {
-        // Phase 1 : les deux yeux se regardent. Phase 2 : le petit part travailler, le grand le surveille.
+        // Phase 1: the two eyes look at each other. Phase 2: the small one goes to work, the big one watches it.
         const cyc = T % 3400;
         let mxT = 100, myT = 62, ppx = 0, ppy = -7;
         if (cyc < 1300) { tx = 0; ty = 0.62; br = -4; }
@@ -198,7 +198,7 @@ export function createEyeEngine({ eye, stage, getInput }) {
         break;
       }
       case 'plan': {
-        // 4 coches de 800 ms, puis 2 temps de pause, puis on recommence.
+        // 4 checks of 800 ms, then 2 beats of pause, then again.
         const stepT = 800, row = Math.floor(T / stepT) % 6, ph = (T % stepT) / stepT;
         e.c = [0, 1, 2, 3].map((i) => (i < row ? 1 : i === row ? Math.min(1, Math.max(0, (ph - 0.3) / 0.25)) : 0));
         const r = Math.min(row, 3);
@@ -247,7 +247,7 @@ export function createEyeEngine({ eye, stage, getInput }) {
       }
     }
 
-    // Modificateurs
+    // Modifiers
     if (M.impatient && TOOL_STATES[st]) {
       const ph = T % 2800;
       if (ph < 750) { tx = has ? mx * 0.35 : 0; ty = has ? my * 0.35 : 0.05; pupil = 1.05; br = -8; by = -4; }
@@ -255,7 +255,7 @@ export function createEyeEngine({ eye, stage, getInput }) {
     }
     if (M.tired && !NO_TIRED[st]) lid = Math.min(1, lid + 0.2);
 
-    // Clignements : 180 ms, parfois doubles
+    // Blinks: 180 ms, sometimes double
     if (!blink) { if (e.blinkAt < now + 800) e.blinkAt = now + 800 + rnd() * 2000; }
     else if (now > e.blinkAt) {
       e.blinkStart = now;
@@ -270,7 +270,7 @@ export function createEyeEngine({ eye, stage, getInput }) {
       else b = p < 0.4 ? Math.sin((p / 0.4) * Math.PI / 2) : 1 - (1 - Math.pow(1 - (p - 0.4) / 0.6, 3));
     }
 
-    // Intégration des ressorts (pas ≤ 1 frame)
+    // Spring integration (steps ≤ 1 frame)
     const steps = Math.ceil(dt), h = dt / steps;
     for (let i = 0; i < steps; i++) {
       spring('x', 'vx', tx, k, c, h);
@@ -286,7 +286,7 @@ export function createEyeEngine({ eye, stage, getInput }) {
     e.shake *= Math.pow(0.88, dt);
     const lidOut = Math.min(1, e.lid + (1 - e.lid) * b);
 
-    // Sortie : variables CSS
+    // Output: CSS variables
     const s = eye.style;
     s.setProperty('--look-x', (e.x * AX).toFixed(2));
     s.setProperty('--look-y', (e.y * AY).toFixed(2));
@@ -337,7 +337,7 @@ export function createEyeEngine({ eye, stage, getInput }) {
       document.documentElement.removeEventListener('pointerleave', onLeave);
       document.removeEventListener('visibilitychange', onVisibility);
     },
-    /** Double clignement (clic sur l'œil) : ouvrir la carte de détails 380 ms après. */
+    /** A double blink (a click on the eye): open the details card 380 ms later. */
     blinkTwice() {
       const now = performance.now();
       e.blinkStart = now;

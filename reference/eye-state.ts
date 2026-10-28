@@ -1,10 +1,10 @@
-// L'œil : machine d'état de référence (pure, sans dépendance, testable).
-// Transforme les événements serveur en ce que l'œil affiche : état, outil, libellé, modificateurs.
+// The eye: reference state machine (pure, no dependency, testable).
+// Turns server events into what the eye shows: state, tool, label, modifiers.
 //
-// Adapte les payloads réels d'OpenCode au type EyeEvent ci-dessous (noms d'événements sans le préfixe « session. »).
-// Appelle dispatch() à chaque événement, et tick() régulièrement (toutes les 100 ms environ) :
-// le temps minimum par état, le délai avant réflexion, les durées des réactions et les modificateurs
-// se résolvent avec le temps, même sans nouvel événement.
+// Adapt OpenCode's real payloads to the EyeEvent type below (event names without the "session." prefix).
+// Call dispatch() on each event, and tick() regularly (about every 100 ms):
+// the minimum time per state, the delay before thinking, the reactions' durations and the modifiers
+// resolve with time, even without a new event.
 
 export type ToolKind = 'read' | 'write' | 'shell' | 'delegate' | 'web' | 'plan' | 'generic';
 
@@ -36,9 +36,9 @@ export type EyeEvent =
   | { type: 'execution.failed'; aborted?: boolean }
   | { type: 'execution.succeeded' }
   | { type: 'execution.interrupted' }
-  | { type: 'prompt.sent' }                              // nouveau prompt de l'utilisateur
-  | { type: 'window.visible'; awayMs: number }           // côté client : visibilitychange
-  | { type: 'context.usage'; ratio: number };            // 0…1, si l'information est disponible
+  | { type: 'prompt.sent' }                              // a new prompt from the user
+  | { type: 'window.visible'; awayMs: number }           // client side: visibilitychange
+  | { type: 'context.usage'; ratio: number };            // 0…1, when known
 
 export interface ActiveTool { callId: string; name: string; kind: ToolKind; since: number }
 export interface Mods { impatient: boolean; bored: boolean; tired: boolean }
@@ -46,12 +46,12 @@ export interface Transition { at: number; label: string; event: string }
 
 export interface EyeView {
   state: EyeState;
-  tool: ActiveTool | null;   // outil affiché dans le badge
-  count: number;             // nombre d'outils en cours (badge ×N si > 1)
-  label: string;             // libellé de la barre d'état
+  tool: ActiveTool | null;   // the tool the badge shows
+  count: number;             // tools in flight (badge ×N when > 1)
+  label: string;             // the status bar's label
   mods: Mods;
-  since: number;             // début de l'état affiché (pour la carte de détails)
-  history: Transition[];     // transitions récentes, la plus récente en premier
+  since: number;             // when the state shown started (for the details card)
+  history: Transition[];     // recent transitions, newest first
 }
 
 export interface EyeOptions {
@@ -61,9 +61,9 @@ export interface EyeOptions {
 }
 
 export const DEFAULT_OPTIONS: EyeOptions = {
-  minDwellMs: 400,       // temps minimum d'affichage d'un état
-  thinkDelayMs: 250,     // délai avant de passer d'un outil à « réfléchit »
-  flashMs: 1500,         // éclair d'erreur (tool.failed)
+  minDwellMs: 400,       // the least time a state shows
+  thinkDelayMs: 250,     // the wait before going from a tool to "thinking"
+  flashMs: 1500,         // error flash (tool.failed)
   happyMs: 1100,
   vexedMs: 1300,
   surprisedMs: 1200,
@@ -74,7 +74,7 @@ export const DEFAULT_OPTIONS: EyeOptions = {
 };
 
 // ---------------------------------------------------------------------------
-// Classification des outils
+// Tool classification
 
 const TOOL_KINDS: Record<string, ToolKind> = {
   read: 'read', grep: 'read', glob: 'read', search: 'read', list: 'read', ls: 'read', find: 'read', codesearch: 'read',
@@ -89,7 +89,7 @@ export function classifyTool(name: string): ToolKind {
   return TOOL_KINDS[name.toLowerCase()] ?? 'generic';
 }
 
-/** Ordre d'affichage quand plusieurs outils tournent en parallèle (le plus « intense » d'abord). */
+/** The display order when several tools run in parallel (the most "intense" first). */
 const TOOL_PRIORITY: ToolKind[] = ['write', 'shell', 'delegate', 'read', 'web', 'plan', 'generic'];
 const TOOL_STATES = new Set<EyeState>(TOOL_PRIORITY);
 
@@ -118,7 +118,7 @@ type ErrorInfo =
 export class EyeStateMachine {
   private o: EyeOptions;
 
-  // modèle
+  // model
   private activity: 'idle' | 'think' | 'respond' = 'idle';
   private tools = new Map<string, ActiveTool>();
   private waits = new Set<string>();
@@ -129,7 +129,7 @@ export class EyeStateMachine {
   private contextRatio = 0;
   private lastEventName = '—';
 
-  // affichage
+  // display
   private shown: EyeState = 'idle';
   private shownTool: ActiveTool | null = null;
   private shownSince: number;
@@ -139,7 +139,7 @@ export class EyeStateMachine {
   constructor(options: Partial<EyeOptions> = {}, now = Date.now()) {
     this.o = { ...DEFAULT_OPTIONS, ...options };
     this.lastEventAt = now;
-    this.shownSince = now - this.o.minDwellMs; // le premier changement d'état passe sans attendre
+    this.shownSince = now - this.o.minDwellMs; // the first change of state goes through without waiting
   }
 
   dispatch(ev: EyeEvent, now = Date.now()): EyeView {
@@ -155,7 +155,7 @@ export class EyeStateMachine {
 
     const urgent = next === 'attention' || next === 'sleep' || isError(next) || isReaction(next);
 
-    // Délai avant « réfléchit » quand on sort d'un outil : un outil qui suit de près évite le passage par think.
+    // The delay before "thinking" when a tool ends: a tool that follows closely skips think.
     if (next === 'think' && TOOL_STATES.has(this.shown)) {
       if (this.thinkPendingSince === null) this.thinkPendingSince = now;
       if (now - this.thinkPendingSince < this.o.thinkDelayMs) { next = this.shown; nextTool = this.shownTool; }
@@ -165,7 +165,7 @@ export class EyeStateMachine {
 
     const changed = next !== this.shown || (nextTool?.callId ?? null) !== (this.shownTool?.callId ?? null);
     if (changed) {
-      // Les états à durée fixe (réactions, éclair) cèdent la place sans attendre le temps minimum.
+      // States of a fixed length (reactions, flash) give way without waiting for the minimum time.
       const leavingTransient = isReaction(this.shown) || this.shown === 'error-flash';
       const dwellOk = now - this.shownSince >= this.o.minDwellMs;
       if (urgent || leavingTransient || dwellOk) {
@@ -255,10 +255,10 @@ export class EyeStateMachine {
       case 'tool.called': {
         const existing = this.tools.get(ev.callId);
         if (!existing) {
-          // L'œil a raté le début : outil générique, avec son nom en libellé.
+          // The eye missed the start: a generic tool, with its name as the label.
           this.tools.set(ev.callId, { callId: ev.callId, name: ev.innerTool ?? ev.tool, kind: 'generic', since: now });
         } else if (ev.innerTool) {
-          // execute : le nom de l'outil interne peut n'arriver qu'ici.
+          // execute: the inner tool's name may only arrive here.
           existing.name = ev.innerTool;
           existing.kind = classifyTool(ev.innerTool);
         }

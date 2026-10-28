@@ -1,4 +1,4 @@
-import { createMemo, createSignal, onCleanup } from "solid-js"
+import { createMemo, createSignal, onCleanup, untrack } from "solid-js"
 import {
   Command,
   createKeyed,
@@ -13,7 +13,8 @@ import { createEventLog } from "./debug"
 import type { definition } from "./definition"
 import { EyePanel } from "./panel"
 import { ENTRIES, EyeSettings } from "./settings"
-import { deadline, reduceSessions, TICK, type Sessions } from "./state"
+import { seed } from "./seed"
+import { deadline, reduceSessions, SEED, TICK, type Sessions } from "./state"
 import css from "./eye.css?inline"
 
 export const TAB = "eye"
@@ -32,6 +33,47 @@ export const setup: Plugin.Setup<typeof definition> = (ctx) => {
     (data) =>
       onCleanup(data.listen((event) => setEyes((sessions) => reduceSessions(sessions, event.details, Date.now())))),
   )
+
+  // An eye shown on a session it has seen no event of yet (the plugin loaded mid-run) starts from what the server
+  // already holds: whether it runs, its tools in flight, its pending approvals and questions. Once per session and
+  // server; then the events take over.
+  let seededFor: unknown
+  const seeded = new Set<string>()
+  const ensure = (sessionID: string) => {
+    const data = ctx.servers.get("sidecar")?.data
+
+    if (!data) return
+    if (seededFor !== data) {
+      seededFor = data
+      seeded.clear()
+    }
+    if (seeded.has(sessionID)) return
+    seeded.add(sessionID)
+
+    const apply = () => {
+      let snapshot: ReturnType<typeof seed>
+
+      try {
+        snapshot = untrack(() =>
+          seed(sessionID, {
+            status: data.session.status(sessionID),
+            messages: data.session.message.list(sessionID),
+            permissions: data.session.permission.list(sessionID),
+            forms: data.session.form.list(sessionID) ?? [],
+          }),
+        )
+      } catch {
+        // A session the server data does not hold yet: the events will tell.
+        return
+      }
+
+      setEyes((sessions) => reduceSessions(sessions, { type: SEED, data: snapshot }, Date.now()))
+    }
+
+    apply()
+    // Pending approvals and questions load on demand: look again once they have.
+    void Promise.allSettled([data.session.permission.sync(sessionID), data.session.form.sync(sessionID)]).then(apply)
+  }
 
   // A failed tool only flashes: wake the machine when the earliest flash ends.
   const wake = createMemo(() => {
@@ -88,7 +130,7 @@ export const setup: Plugin.Setup<typeof definition> = (ctx) => {
     },
     list: (input) => (input.open.includes(TAB) ? [tab] : []),
     // props.session is a getter that follows session switches: pass it through, never destructure.
-    render: (props) => <EyePanel session={props.session} eyes={eyes} log={log} />,
+    render: (props) => <EyePanel session={props.session} eyes={eyes} ensure={ensure} log={log} />,
   })
 
   ctx.add(

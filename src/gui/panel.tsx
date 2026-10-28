@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, Show, type Accessor } from "solid-js"
-import { usePanel, usePlugin, type MountedSession } from "@opencode/plugin/gui"
+import { createKeyed, usePanel, usePlugin, type MountedSession } from "@opencode/plugin/gui"
 import type { EventLog } from "./debug"
 import type { definition } from "./definition"
 import { openDetails } from "./details"
@@ -15,6 +15,8 @@ const IDLE = initial(0)
 export function EyePanel(props: {
   readonly session: MountedSession
   readonly eyes: Accessor<Sessions>
+  /** Fills in the eye of a session it has seen no event of yet, from what the server holds. */
+  readonly ensure: (sessionID: string) => void
   readonly log: EventLog
 }) {
   const ctx = usePlugin<typeof definition>()
@@ -22,6 +24,12 @@ export function EyePanel(props: {
   const settings = () => ctx.stores.settings.value
   // Read through the getter each time: the panel stays mounted when the user switches sessions.
   const state = (): EyeState => props.eyes()[props.session.id] ?? IDLE
+
+  // Each session the panel shows, including after a switch.
+  createKeyed(
+    () => props.session.id,
+    (id) => props.ensure(id),
+  )
   const look = createMemo(
     (): Look => {
       const current = state()

@@ -68,6 +68,12 @@ export type Sessions = Readonly<Record<string, EyeState>>
 /** The internal event that expires a flashing error; dispatch it at `deadline(state)`. */
 export const TICK = "eye.tick"
 
+/**
+ * The internal event that tells an eye what the server already knew when it joined a session mid-run. Its data is a
+ * `Seed` (see seed.ts). It only fills in an eye that has seen no transition of its own yet.
+ */
+export const SEED = "eye.seed"
+
 export const FLASH_MS = 1500
 export const HISTORY = 20
 
@@ -240,6 +246,39 @@ function apply(state: EyeState, event: EyeEvent, now: number): EyeState | Draft 
       }
     }
 
+    case SEED: {
+      // Events know better than a snapshot: once the eye saw a real transition, the seed has nothing to add.
+      if (state.history.some((item) => item.event !== SEED)) return state
+
+      const tools: RunningTool[] = array(data.tools).flatMap((item) => {
+        const tool = record(item)
+        const id = string(tool.id)
+        const name = string(tool.name) ?? ""
+
+        return id && !state.tools.some((known) => known.id === id) ? [{ id, name, kind: kindOf(name), since: now }] : []
+      })
+      const asks: Ask[] = array(data.asks).flatMap((item) => {
+        const ask = record(item)
+        const id = string(ask.id)
+        const kind = ask.kind === "question" ? "question" : "permission"
+
+        return id && !state.asks.some((known) => known.id === id) ? [{ id, kind, label: string(ask.label), since: now }] : []
+      })
+      const running = state.running || data.running === true
+      const compacting = state.compacting || data.compacting === true
+
+      if (!tools.length && !asks.length && running === state.running && compacting === state.compacting) return state
+      return {
+        ...state,
+        running,
+        started: state.started ?? (running ? now : undefined),
+        compacting,
+        // Seeded tools started before anything the eye saw.
+        tools: [...tools, ...state.tools],
+        asks: [...state.asks, ...asks],
+      }
+    }
+
     case "permission.asked": {
       const id = string(data.id)
 
@@ -306,6 +345,10 @@ function innerTool(calls: unknown): string | undefined {
 
 function messageOf(data: Record<string, unknown>): string {
   return string(record(data.error).message) ?? ""
+}
+
+function array(value: unknown): readonly unknown[] {
+  return Array.isArray(value) ? value : []
 }
 
 function record(value: unknown): Record<string, unknown> {

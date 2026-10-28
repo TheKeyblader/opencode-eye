@@ -57,14 +57,22 @@ function App() {
         "font-family": "system-ui, sans-serif",
         "min-height": "100vh",
         margin: "0",
-        padding: "16px",
+        padding: params.has("bare") ? "56px 16px 16px" : "16px",
         background: tokyo ? "var(--background-base)" : mode() === "dark" ? "#16181d" : "#fbfbfa",
         color: mode() === "dark" ? "#d5d8de" : "#26282d",
         ...(tokyo ? TOKYO : {}),
       }}
     >
       <style>{css}</style>
-      <nav style={{ display: "flex", "flex-wrap": "wrap", gap: "6px", "margin-bottom": "16px" }}>
+      {/* ?bare hides the controls, for the README picture. */}
+      <nav
+        style={{
+          display: params.has("bare") ? "none" : "flex",
+          "flex-wrap": "wrap",
+          gap: "6px",
+          "margin-bottom": "16px",
+        }}
+      >
         <For each={GALLERY}>
           {(entry) => (
             <button aria-pressed={key() === entry.key} onClick={() => setKey(entry.key)}>

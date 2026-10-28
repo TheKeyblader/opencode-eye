@@ -1,6 +1,24 @@
 {
   "name": "opencode-eye",
   "version": "0.1.0",
+  "description": "An animated eye in OpenCode Desktop that shows what the AI is doing",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "plugin",
+    "solid-js",
+    "animation"
+  ],
+  "license": "MIT",
+  "author": "TheKeyblader",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheKeyblader/opencode-eye.git"
+  },
+  "homepage": "https://github.com/TheKeyblader/opencode-eye#readme",
+  "bugs": {
+    "url": "https://github.com/TheKeyblader/opencode-eye/issues"
+  },
   "private": true,
   "type": "module",
   "exports": {

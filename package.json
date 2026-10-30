@@ -1,6 +1,6 @@
 {
   "name": "@enx2/opencode-eye",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "An animated eye in OpenCode Desktop that shows what the AI is doing",
   "keywords": [
     "opencode",

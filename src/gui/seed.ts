@@ -5,12 +5,15 @@
 
 import { contextTokens } from "./adapt"
 
-/** The structural parts of the server's data the seed reads. `Data`'s values fit. */
+/**
+ * The structural parts of the server's data the seed reads. `Data`'s values fit. A list the server has not loaded yet,
+ * such as an old session's pending approvals, is undefined at runtime whatever `Data`'s types say: it counts as empty.
+ */
 export interface SeedSource {
   readonly status: "idle" | "running"
-  readonly messages: readonly unknown[]
-  readonly permissions: readonly { readonly id: string; readonly action: string }[]
-  readonly forms: readonly { readonly id: string; readonly title: string }[]
+  readonly messages?: readonly unknown[]
+  readonly permissions?: readonly { readonly id: string; readonly action: string }[]
+  readonly forms?: readonly { readonly id: string; readonly title: string }[]
 }
 
 /** What an eye joining mid-run starts from: a `Snapshot` for the machine, and the latest context usage. */
@@ -30,11 +33,12 @@ const IN_FLIGHT = new Set(["streaming", "running"])
 /** What the server's data says about a session: whether it runs, its tools in flight, what waits for the user. */
 export function seed(sessionID: string, source: SeedSource): Seed {
   const running = source.status === "running"
+  const messages = source.messages ?? []
   const tools: { id: string; name: string }[] = []
   let compacting = false
   let usage: Seed["usage"]
 
-  for (const message of source.messages) {
+  for (const message of messages) {
     const item = record(message)
     const tokens = item.type === "assistant" ? contextTokens(item.tokens) : undefined
 
@@ -43,7 +47,7 @@ export function seed(sessionID: string, source: SeedSource): Seed {
 
   // A part left "running" by a run that is over is stale: trust the parts only while the session runs.
   if (running) {
-    for (const message of source.messages) {
+    for (const message of messages) {
       const item = record(message)
 
       if (item.type === "compaction") compacting = item.status === "running"
@@ -64,8 +68,8 @@ export function seed(sessionID: string, source: SeedSource): Seed {
     compacting,
     tools,
     asks: [
-      ...source.permissions.map((item) => ({ id: item.id, kind: "permission" as const, label: item.action })),
-      ...source.forms.map((item) => ({ id: item.id, kind: "question" as const, label: item.title })),
+      ...(source.permissions ?? []).map((item) => ({ id: item.id, kind: "permission" as const, label: item.action })),
+      ...(source.forms ?? []).map((item) => ({ id: item.id, kind: "question" as const, label: item.title })),
     ],
     usage,
   }

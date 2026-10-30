@@ -14,6 +14,20 @@ const tool = (id: string, name: string, status: string) => ({
 const assistant = (...content: unknown[]) => ({ type: "assistant", id: "msg_1", content })
 
 describe("seed", () => {
+  test("an old session whose lists the server has not loaded yet seeds an eye at rest", () => {
+    // Data types these lists as arrays, but an old session's pending approvals come back undefined until they sync.
+    const unloaded: SeedSource = { status: "idle" }
+
+    expect(seed("ses_a", unloaded)).toEqual({
+      sessionID: "ses_a",
+      running: false,
+      compacting: false,
+      tools: [],
+      asks: [],
+      usage: undefined,
+    })
+  })
+
   test("reads what the latest answer put in the context", () => {
     const tokens = { input: 100, output: 20, reasoning: 0, cache: { read: 0, write: 0 } }
     const messages = [

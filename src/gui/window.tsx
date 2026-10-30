@@ -163,7 +163,7 @@ export const setup: Plugin.Setup<typeof definition> = (ctx) => {
             status: data.session.status(sessionID),
             messages: data.session.message.list(sessionID),
             permissions: data.session.permission.list(sessionID),
-            forms: data.session.form.list(sessionID) ?? [],
+            forms: data.session.form.list(sessionID),
           }),
         )
       } catch (error) {
